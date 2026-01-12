@@ -1,7 +1,7 @@
 # bcd clock application using display abstraction layer
 import sys
 import time
-from machine import Pin
+from machine import RTC, Pin
 import gc
 import genlib as gl
 from lan import LAN
@@ -24,6 +24,8 @@ if debug:
     for key in sorted(keys):
         print(f'{key:25}{cfg[key]}')
     print()
+
+display_rtc = 'display_rtc' in keys and cfg['display_rtc']
 
 # Initialize common hardware
 # Optional LED to show activity, not currectly used
@@ -270,12 +272,23 @@ def test():
 def clear():
     display.clear()
 
-# Get the local time and update the display
+# Get the time and update the display
 def update_time():
-    lt = gl.localtime()
-    update_hours(lt[3])
-    update_minutes(lt[4])
-    update_seconds(lt[5])
+    if display_rtc:
+        # Display the RTC time directly
+        lt = RTC().datetime()
+        hours = lt[4]
+        mins = lt[5]
+        secs = lt[6]
+    else:
+        # Assume RTC time is UTC, get local time using genlib
+        lt = gl.localtime()
+        hours = lt[3]
+        mins = lt[4]
+        secs = lt[5]
+    update_hours(hours)
+    update_minutes(mins)
+    update_seconds(secs)
     display.show()
 
 # update RTC (via NTP) once an hour (seconds)
