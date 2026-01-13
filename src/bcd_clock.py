@@ -1,4 +1,22 @@
 # bcd clock application using display abstraction layer
+#
+# Configuration options
+#   debug      - output debug information
+#   verbose    - if debug, output copious information
+#   display_rtc - if true, output RTC time directly, else RTC=UTC use genlib for DST compensation
+#   bkg_color   - color of background pixels, else "black"
+#   frame_color - color of frame pixels, else "ltgray"
+#   colon_color - color of blinking colons, else "vltgray"
+#   hour_color  - color of hour digits, else "red"
+#   min_color   - color of minute digits, else "green"
+#   sec_color   - color of second digits, else "blue"
+#
+# Notes
+#   color options are;
+#     "red", "ltred", "green", "ltgreen", "blue", "ltblue"
+#     "cyan", "ltcyan", "magenta", ltmagenta", "yellow", "ltyellow",
+#     "black", "white", "gray", "ltgray", "vltgray", vvltgray"
+    
 import sys
 import time
 from machine import RTC, Pin
@@ -75,6 +93,72 @@ display = __import__(dal_module).DAL()
 if debug:
     print('Display initialized')
 
+# Get display colors from DAL class
+colors = {
+    "black"     : display.BLACK,
+    "red"       : display.RED,
+    "ltred"     : display.LTRED,
+    "green"     : display.GREEN,
+    "ltgreen"   : display.LTGREEN,
+    "blue"      : display.BLUE,
+    "ltblue"    : display.LTBLUE,
+    "cyan"      : display.CYAN,
+    "ltcyan"    : display.LTCYAN,
+    "magenta"   : display.MAGENTA,
+    "ltmagenta" : display.LTMAGENTA,
+    "yellow"    : display.YELLOW,
+    "ltyellow"  : display.LTYELLOW,
+    "white"     : display.WHITE,
+    "gray"      : display.GRAY,
+    "ltgray"    : display.LTGRAY,
+    "vltgray"   : display.VLTGRAY,
+    "vvltgray"  : display.VVLTGRAY}
+
+# Set display colors from configuration
+ckeys = colors.keys()
+
+# Background color
+bcolor = display.BLACK
+if 'bkg_color' in keys:
+    temp = cfg['bkg_color']
+    if temp in ckeys:
+        bcolor = colors[temp]
+
+# Frame color
+fcolor = display.LTGRAY
+if 'frame_color' in keys:
+    temp = cfg['frame_color']
+    if temp in ckeys:
+        fcolor = colors[temp]
+
+# colon color
+ccolor = display.VLTGRAY
+if 'colon_color' in keys:
+    temp = cfg['colon_color']
+    if temp in ckeys:
+        ccolor = colors[temp]
+
+# hour color
+hcolor = display.RED
+if 'hour_color' in keys:
+    temp = cfg['hour_color']
+    if temp in ckeys:
+        hcolor = colors[temp]
+
+# min color
+mcolor = display.GREEN
+if 'min_color' in keys:
+    temp = cfg['min_color']
+    if temp in ckeys:
+        mcolor = colors[temp]
+
+# sec color
+scolor = display.BLUE
+if 'sec_color' in keys:
+    temp = cfg['sec_color']
+    if temp in ckeys:
+        scolor = colors[temp]
+
 # Get local copy of display geometry
 dal_cfg = display.configuration()
 start_x = dal_cfg['start_x']
@@ -84,27 +168,23 @@ pixel_y = dal_cfg['pixel_x']
 border = dal_cfg['border']
 size = display.size
 
-# Set background color
-bcolor = display.BLACK
-
 # update the LED display matrix with a bcd representation of the time
 # minimum geometric requirement 8 * 4 'virtual' pixels (6 * 4 w/o colons)
 
 # Display clock frame to make BCD visual interpretation easier
 def draw_frame():
     global display
+    global fcolor
     global start_x, start_y
     global pixel_x, pixel_y
     global size
     
-    gcolor = display.WHITE
-    
     if border == 0:
         y0 = start_y - 1
         if y0 >= 0:
-            display.hline(0, y0, size[0], gcolor)
+            display.hline(0, y0, size[0], fcolor)
             y0 = start_y + 4 * pixel_y
-            display.hline(0, y0, size[0], gcolor)
+            display.hline(0, y0, size[0], fcolor)
     else:
         x0 = start_x - 2 * border
         y0 = start_y - 2 * border
@@ -119,29 +199,28 @@ def draw_frame():
             lenx = x1 - x0
             y1 = start_y + 4 * (pixel_y + border) + 1
             leny = y1 - y0
-            display.hline(x0, y0, lenx, gcolor)
-            display.hline(x0, y1, lenx, gcolor)
-            display.vline(x0, y0, leny, gcolor)
-            display.vline(x1, y0, leny, gcolor)
+            display.hline(x0, y0, lenx, fcolor)
+            display.hline(x0, y1, lenx, fcolor)
+            display.vline(x0, y0, leny, fcolor)
+            display.vline(x1, y0, leny, fcolor)
         
 # Display blinking colon to separate time fields
 dots_on = True
 def blink_dots():
-    global dots_on
+    global dots_on, bcolor, ccolor
 
-    dcolor = display.VLTGRAY if dots_on else display.BLACK
-    display.dot_set(2, 1, dcolor)
-    display.dot_set(2, 2, dcolor)
-    display.dot_set(5, 1, dcolor)
-    display.dot_set(5, 2, dcolor)
+    tmp_color = ccolor if dots_on else bcolor
+    display.dot_set(2, 1, tmp_color)
+    display.dot_set(2, 2, tmp_color)
+    display.dot_set(5, 1, tmp_color)
+    display.dot_set(5, 2, tmp_color)
     dots_on = not dots_on
 
 # Display 2 digit hour - decimal 0..23 BCD [0..2 0..9]
 # If you want AM/PM, add it yourself ;-)
-hcolor = display.LTRED
 last_hour = -1
 def update_hours(val):
-    global last_hour
+    global last_hour, hcolor, bcolor
     if val == last_hour:
         return
     last_hour = val
@@ -172,10 +251,9 @@ def update_hours(val):
         display.xy_set(1, 3, hcolor)
 
 # Display 2 digit minute - decimal 0..59 BCD [0..5 0..9]
-mcolor = display.LTGREEN
 last_min = -1
 def update_minutes(val):
-    global last_min
+    global last_min, mcolor, bcolor
     if last_min == val:
         return
     last_min = val
@@ -215,10 +293,9 @@ def update_minutes(val):
         display.xy_set(4, 3, mcolor)
 
 # Display 2 digit second - decimal 0..59 BCD [0..5 0..9]
-scolor = display.LTBLUE
 last_sec = -1
 def update_seconds(val):
-    global last_sec
+    global last_sec, scolor, bcolor
     if last_sec == val:
         return
     last_sec = val
@@ -261,7 +338,7 @@ def update_seconds(val):
 
 # Display test for graphics fine-tuning
 def test():
-    display.clear()
+    display.fill(bcolor)
     draw_frame()
     update_hours(23)
     update_minutes(59)
@@ -307,7 +384,7 @@ if debug:
 
 try:
     tstart = int(time.time())
-    display.clear()
+    display.fill(bcolor)
     draw_frame()
     loop_cnt = 0
     while not stop:
