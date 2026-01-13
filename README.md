@@ -48,10 +48,10 @@ necessary to correctly drive the data signal. With minor modifications,
 this driver should work with any size display. The microprocessor may not
 support the 5V current drain necessary to drive your specific WS2812 2D
 display panel correctly. If so, use an external 5V power source. Running the
-application as is, my 16x16 panel typically draws about 300mA, the 8x8 panel
-draws about 70mA. The default LED intensity is reduced significantly in the
+application as is, my 16x16 panel typically draws about 240mA, the 8x8 panel
+draws about 75mA. The default LED intensity is reduced significantly in the
 base driver. The current can be further reduced by changing the frame color
-from WHITE to VLTGRAY (bcd\_clock.py line 98).
+from LTGRAY to VVLTGRAY (bcd\_clock.cfg).
 
 If you are unsure about which pins to use to control your display, use the pins
 as defined in the display specific configuration files. Here is a list of the
