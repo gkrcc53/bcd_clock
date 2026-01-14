@@ -32,9 +32,24 @@ cfg = gl.get_board_config()
 # Get application configuration
 pcfg = gl.get_config('bcd_clock.cfg')
 
-# Application can override platform defaults
+# Application configuration overrides platform settings
 cfg = cfg | pcfg
 keys = cfg.keys()
+
+# Get DAL module name
+if 'display_type' not in keys:
+    print('Display type not configured')
+    sys.exit(1)
+dal_module = f'dal_{cfg["display_type"]}'
+if not gl.module_available(dal_module):
+    print(f'DAL implementation {dal_module} not available')
+    sys.exit(1)
+
+# DAL configuration overrides platform and application settings
+dcfg = gl.get_config(f'{dal_module}.cfg')
+cfg = cfg | dcfg
+keys = cfg.keys()
+
 debug = 'debug' in cfg and cfg['debug']
 verbose = False
 if debug:
@@ -78,15 +93,6 @@ if gl.file_exists('lan.cfg'):
     if not lan.update_rtc():
         print('RTC update failed')
         exit(1)
-
-# Get DAL implementation
-if 'display_type' not in keys:
-    print('Display type not configured')
-    sys.exit(1)
-dal_module = f'dal_{cfg["display_type"]}'
-if not gl.module_available(dal_module):
-    print(f'DAL implementation {dal_module} not available')
-    sys.exit(1)
 
 # Initialize display
 display = __import__(dal_module).DAL()
