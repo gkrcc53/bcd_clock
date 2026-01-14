@@ -39,15 +39,15 @@ display.
 ST7735 displays come in many flavors. There are multiple internal initialization
 routines and options that need to be correct for error free display. If the display
 generally works, but small border issues are visible, try modifying the offset
-setting in the configuration file. See the header of the dal_st7735.py for more
-information.
+setting in the display configuration file. See the header of the dal_st7735.py
+for more information.
 
 The WS2812 driver uses a single GPIO pin to send data to the 2D LED panel. Since the
 Raspberry Pi PICO 2W uses 3.3V logic levels, a level shifter is
 necessary to correctly drive the data signal. With minor modifications,
-this driver should work with any size display. The microprocessor may not
-support the 5V current drain necessary to drive your specific WS2812 2D
-display panel correctly. If so, use an external 5V power source. Running the
+this driver should work with any compatible 2D display. The microprocessor may not
+support the 5V current drain necessary to drive your specific display panel correctly.
+If so, use an external 5V power source. Running the
 application as is, my 16x16 panel typically draws about 240mA, the 8x8 panel
 draws about 75mA. The default LED intensity is reduced significantly in the
 base driver. The current can be further reduced by changing the frame color
@@ -85,6 +85,13 @@ GPIO 21         SPI RST  (RES)<p>
 
 Additional Information
 ----------------------
+Configuration options are stored in json files (\*.cfg). The top level
+configuration is stored in board.cfg. This file contains global options that
+are seldom modified. The application configuration file bcd\_clock.cfg) contains 
+application level options and the DAL configuration dal\_{display}.cfg file
+contains display level options. Each configuration file can override
+settings defined at the previous level.
+
 The display drivers have been modified to provide a relatively consistent
 API for initialization and simple graphics functions. I did not write the
 original display driver code. The initial author(s), if known, are documented
