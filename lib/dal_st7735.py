@@ -48,16 +48,20 @@ class DAL(ST7735):
 
     # Display initialization
     def __init__(self):
+        # Define initialization function dictionary
         inits = {"initr"  : self.initr,
                  "initb"  : self.initb,
                  "initb2" : self.initb2,
                  "initg"  : self.initg}
-        # Get display configuration
+        
+        # Get board configuration
         cfg = gl.get_board_config()
         keys = cfg.keys()
-        offset = [0, 0]
-        if 'st7735_offset' in keys:
-            offset = cfg['st7735_offset']
+        
+        # Get driver settings
+        self.debug = 'debug' in keys and cfg['debug']
+
+        # SPI interface settings
         baud = 40_000_000
         if 'st7735_baud' in keys:
             baud = cfg['st7735_baud']
@@ -67,29 +71,56 @@ class DAL(ST7735):
         pres = cfg['st7735_res']
         pdc = cfg['st7735_dc']
         pcs = cfg['st7735_cs']
+        
+        # Screen offset
+        offset = [0, 0]
+        if 'st7735_offset' in keys:
+            offset = cfg['st7735_offset']
+            
+        # Screen rotation
         rotate = 0
         if 'st7735_rotate' in keys:
             rotate = cfg['st7735_rotate']
+        
+        # RGB color interpretation
         color_rgb = True
         if 'st7735_color_rgb' in keys:
             color_rgb = cfg['st7735_color_rgb']
-        init = inits['initr']
+            
+        # Screen initialization function
+        kinit = 'initr'
         if 'st7735_init' in keys:
             temp = cfg['st7735_init']
             if temp in inits.keys():
-                init = inits[temp]
+                kinit = temp
 
-        # Normal initialization
+        if self.debug:
+            print(f'DAL ST7735 implementation')
+
+        # SPI initialization
         spi=SPI(port, baudrate=baud, sck=psck, mosi=psda, miso=pdc)
+        if self.debug:
+            print(f'  Interface {spi}')
+            
+        # Display initialization
         super().__init__(spi, pdc, pres, pcs)
         self.rgb(color_rgb)
-        init()
-        
+        if self.debug:
+            yn = '' if color_rgb else 'in'
+            print(f'  RGB is {yn}active')
+        inits[kinit]()
+        if self.debug:
+            print(f'  Initialized using {kinit}')
+
         # Some displays require an offset
         if offset:
             self._offset[0] = offset[0]
             self._offset[1] = offset[1]
+        if self.debug:
+            print(f'  Offset set to [{offset[0]}, {offset[1]}]')
         self.rotation(rotate)
+        if self.debug:
+            print(f'  Rotation set to {90*rotate} degrees')
         self.clear()
         
         # display geometry (vertical orientation)
