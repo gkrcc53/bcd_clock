@@ -27,10 +27,25 @@ from lan import LAN
 print()
 
 # Get platform configuration
-cfg = gl.get_board_config()
+if not gl.file_exists('board.py'):
+    print('Board name file (board.py) not found')
+    sys.exit(1)
+board = gl.get_board_name()
+if board == gl._UNDEFINED:
+    print('Board name is not correctly defined')
+    sys.exit(1)
+bdcfg = f'{board}.cfg'
+if not gl.file_exists(bdcfg):
+    print(f'Board configuration file {bdcfg} not found')
+    sys.exit(1)
+cfg = gl.get_config(bdcfg)
 
 # Get application configuration
-pcfg = gl.get_config('bcd_clock.cfg')
+appcfg = 'bcd_clock.cfg'
+if not gl.file_exists(appcfg):
+    print(f'Application configuration file {appcfg} not found')
+    sys.exit(1)
+pcfg = gl.get_config(appcfg)
 
 # Application configuration overrides platform settings
 cfg = cfg | pcfg
@@ -45,10 +60,12 @@ if not gl.module_available(dal_module):
     print(f'DAL implementation {dal_module} not available')
     sys.exit(1)
 
-# DAL configuration overrides platform and application settings
-dcfg = gl.get_config(f'{dal_module}.cfg')
-cfg = cfg | dcfg
-keys = cfg.keys()
+# Optional DAL configuration overrides platform and application settings
+dalcfg = f'{dal_module}.cfg'
+if gl.file_exists(dalcfg):
+    dcfg = gl.get_config(dalcfg)
+    cfg = cfg | dcfg
+    keys = cfg.keys()
 
 debug = 'debug' in cfg and cfg['debug']
 verbose = False
