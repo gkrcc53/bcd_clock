@@ -108,7 +108,7 @@ GPIO 23         I2C SCL<br>
 
 ST7735 (st7735_esp.cfg)<br>
 ST7789 (st7789_esp.cfg)<br>
-The following pins are used for the SPI bus (port 0)
+The following pins are used for the SPI bus (port 2)
 GPIO 18         SPI SCK  (SCL)<br>
 GPIO 23         SPI MOSI (SDA)<br>
 GPIO 19         SPI MISO (DC)<br>
