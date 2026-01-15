@@ -29,15 +29,15 @@ if debug:
         print(f'{key:<25}{cfg[key]}')
     print()
 
-port = cfg['st7789_port']
-psck = cfg['st7789_scl']
-psda = cfg['st7789_sda']
-pres = cfg['st7789_res']
-pdc = cfg['st7789_dc']
-pcs = cfg['st7789_cs']
+port = cfg['spi_port']
+psck = cfg['spi_scl']
+psda = cfg['spi_sda']
+pres = cfg['spi_res']
+pdc = cfg['spi_dc']
+pcs = cfg['spi_cs']
+baud = cfg['spi_baud']
 width = cfg['st7789_width']
 height = cfg['st7789_height']
-baud = cfg['st7789_baud']
 
 # Normal initialization w/o rotation
 spi=SPI(port, baudrate=baud, sck=psck, mosi=psda, miso=pdc)

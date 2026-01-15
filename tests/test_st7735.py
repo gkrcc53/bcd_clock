@@ -17,18 +17,19 @@ if debug:
 offset = [2, 1]
 if 'st7735_offset' in keys:
     offset = cfg['st7735_offset']
-port = cfg['st7735_port']
-psck = cfg['st7735_scl']
-psda = cfg['st7735_sda']
-pres = cfg['st7735_res']
-pdc = cfg['st7735_dc']
-pcs = cfg['st7735_cs']
+port = cfg['spi_port']
+psck = cfg['spi_scl']
+psda = cfg['spi_sda']
+pres = cfg['spi_res']
+pdc = cfg['spi_dc']
+pcs = cfg['spi_cs']
+baud = cfg['spi_baud']
 
 # time program
 tstart = gl.time_ms()
 
 # Normal initialization w/o rotation
-spi=SPI(port, baudrate=40000000)
+spi=SPI(port, baudrate=baud, sck=psck, mosi=psda, miso=pdc)
 tft=ST7735(spi,pdc,pres,pcs)
 tft.rgb(True)
 tft.initr()

@@ -36,7 +36,8 @@ class DAL(WS2812):
     # Display initialization
     def __init__(self):
         cfg = gl.get_board_config()
-        if 'ws2812_din' not in cfg.keys():
+        keys = cfg.keys()
+        if 'ws2812_din' not in keys:
             print('WS2812 display not configured')
             return None
         din = cfg['ws2812_din']

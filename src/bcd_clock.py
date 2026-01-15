@@ -23,7 +23,6 @@ import time
 from machine import RTC, Pin
 import gc
 import genlib as gl
-from lan import LAN
 
 print()
 
@@ -106,8 +105,10 @@ if 'BTN' in keys:
 gc.collect()
 
 # Optional LAN connection to update RTC periodically
+# Only import network library if required
 lan = None
 if gl.file_exists('lan.cfg'):
+    from lan import LAN
     lan = LAN()
     if debug:
         print('Connecting to LAN')

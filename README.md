@@ -3,8 +3,10 @@ BCD Clock MicroPython application
 
 This application uses common display hardware, including SH1106,
 SSD1306, ST7735 and ST7789 screens and WS2812 panels to display a simple
-BCD clock. The application code was developed for and on a Raspberry Pi Pico
-2W microprocessor.
+BCD clock. The application code was developed and tested on both
+Raspberry Pi Pico 2W and ESP32 S2 microprocessors. It is largely platform
+independent and should work on other micropython platforms that support
+the required interface(s).
 
 Installation
 ------------
@@ -52,10 +54,11 @@ application as is, my 16x16 panel typically draws about 240mA, the 8x8 panel
 draws about 75mA. The default LED intensity is reduced significantly in the
 base driver. The current can be further reduced by changing the frame color
 from LTGRAY to VVLTGRAY (bcd\_clock.cfg).
-
+ 
 If you are unsure about which pins to use to control your display, use the pins
-as defined in the display specific configuration files. Here is a list of the
-default hardware connections;
+as defined in the display specific configuration files.
+
+Here is a list of the defulat hardware connections used on the Raspberry PICO 2W;
 
 LED (optional)<br>
 GPIO 15
@@ -63,25 +66,54 @@ GPIO 15
 BTN (optional)<br>
 GPIO 14
 
-WS2812b<br>
+WS2812 (ws2812.cfg)<br>
 GPIO 5 is used to send data to the panel (routed through a 3.3V/5V level converter)
 An external power supply is used to provide 5V to the panel, although the 8x8 panel
-can be powered from the microprocessor 5V VSYS pin.
+can be powered from the microprocessor 5V VSYS pin. The neopixel module does not work
+correctly on my microprocessors.
 
-SSD1306<br>
-SH1106<br>
+SSD1306 (ssd1306.cfg)<br>
+SH1106 (sh1106.cfg)<br>
 The following pins are used for the I2C bus (port 1);
 GPIO 18         I2C SDA<br>
 GPIO 19         I2C SCL<br>
 
-ST7735<br>
-ST7789<br>
+ST7735 (st7735.cfg)<br>
+ST7789 (st7789.cfg)<br>
 The following pins are used for the SPI bus (port 0)
 GPIO 18         SPI SCK  (SCL)<br>
 GPIO 19         SPI MOSI (SDA)<br>
 GPIO 16         SPI MISO (DC)<br>
 GPIO 17         SPI CS   (CS)<br>
 GPIO 21         SPI RST  (RES)<p>
+
+and here are the default hardware connections used on the ESP32 S2;
+
+LED (optional)<br>
+GPIO 5
+
+BTN (optional)<br>
+GPIO 12
+
+neopixel<br>
+GPIO 22 is used to send data to the panel (routed through a 3.3V/5V level converter)
+An external power supply must be used to provide 5V to the panel. The ws2812 driver is
+platform specific and can not be used on ESP systems.
+
+SSD1306 (ssd1306_esp.cfg)<br>
+SH1106 (sh1106_esp.cfg)<br>
+The following pins are used for the I2C bus (port 1);
+GPIO 18         I2C SDA<br>
+GPIO 23         I2C SCL<br>
+
+ST7735 (st7735_esp.cfg)<br>
+ST7789 (st7789_esp.cfg)<br>
+The following pins are used for the SPI bus (port 0)
+GPIO 18         SPI SCK  (SCL)<br>
+GPIO 23         SPI MOSI (SDA)<br>
+GPIO 19         SPI MISO (DC)<br>
+GPIO 27         SPI CS   (CS)<br>
+GPIO 15         SPI RST  (RES)<p>
 
 Additional Information
 ----------------------
