@@ -7,6 +7,7 @@
 #   ws2812_orientation  * 5 = UPPER_RIGHT_ALTERNATE else 0 = UPPER_LEFT_NORMAL
 #   ws2812_rows         * panel row count
 #   ws2812_cols         * panel column count
+#   ws2812_brightness   - LED brightness factor, 0.1 if not defined [0..1]
 
 from ws2812 import WS2812
 import rgbcolor as COLOR
@@ -42,7 +43,10 @@ class DAL(WS2812):
         rows = cfg['ws2812_rows']
         cols = cfg['ws2812_cols']
         orient = cfg['ws2812_orientation']
+        if 'ws2812_brightness' in keys:
+            bright = cfg['ws2812_brightness']
         super().__init__(din, cols, rows, orient)
+        self.brightness = bright
         self.clear()
         # virtual pixel size
         self.pixel_x = 2 if cols == 16 else 1
