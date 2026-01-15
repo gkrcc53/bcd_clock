@@ -5,15 +5,15 @@
 #   display_type      * "st7735"
 #   st7735_offset     - [0, 0] if not defined, reorder settings if necessary
 #   st7735_rotate     - 0 if not defined, [0..3]
-#   st7735_port       * SPI port 0..1
-#   st7735_sda        * SPI mosi pin
-#   st7735_scl        * SPI clock pin
-#   st7735_cs         * SPI chip select pin
-#   st7735_dc         * SPI miso pin
-#   st7735_res        * SPI reset pin
-#   st7735_baud       - 40_000_000 if not defined
 #   st7735_color_rgb  - True if not defined, else RGB|BGR
 #   st7735_init       - initr if not defined ["initr", "initb", "initb2", "initg"]
+#   spi_port          * SPI port 0..1
+#   spi_sda           * SPI mosi pin
+#   spi_scl           * SPI clock pin
+#   spi_cs            * SPI chip select pin
+#   spi_dc            * SPI miso pin
+#   spi_res           * SPI reset pin
+#   spi_baud          - 40_000_000 if not defined
 #
 # Notes
 #   display size fixed at 128x160 in driver
@@ -63,14 +63,14 @@ class DAL(ST7735):
 
         # SPI interface settings
         baud = 40_000_000
-        if 'st7735_baud' in keys:
-            baud = cfg['st7735_baud']
-        port = cfg['st7735_port']
-        psck = cfg['st7735_scl']
-        psda = cfg['st7735_sda']
-        pres = cfg['st7735_res']
-        pdc = cfg['st7735_dc']
-        pcs = cfg['st7735_cs']
+        if 'spi_baud' in keys:
+            baud = cfg['spi_baud']
+        port = cfg['spi_port']
+        psck = cfg['spi_scl']
+        psda = cfg['spi_sda']
+        pres = cfg['spi_res']
+        pdc = cfg['spi_dc']
+        pcs = cfg['spi_cs']
         
         # Screen offset
         offset = [0, 0]

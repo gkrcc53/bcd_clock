@@ -6,15 +6,15 @@
 #   st7789_width        * limited choice, see below
 #   st7789_height       * limited choice, see below
 #   st7789_rotate       - [0]..3
-#   st7789_port         * SPI port 0..1
-#   st7789_sda          * SPI mosi pin
-#   st7789_scl          * SPI sck pin
-#   st7789_cs           * SPI cs pin
-#   st7789_dc           * SPI miso pin
-#   st7789_res          * SPI reset pin
-#   st7789_baud         - 40_000_000 if not defined
 #   st7789_color_rgb    - False if not defined else RGB|BGR
 #   st7789_color_invert - False if not defined
+#   spi_port            * SPI port 0..1
+#   spi_sda             * SPI mosi pin
+#   spi_scl             * SPI sck pin
+#   spi_cs              * SPI cs pin
+#   spi_dc              * SPI miso pin
+#   spi_res             * SPI reset pin
+#   spi_baud            - 40_000_000 if not defined
 #
 # Notes
 #   Limited choice in display sizes; 240x320, 240x240, 135x240, 128x128
@@ -53,14 +53,14 @@ class DAL(ST7789):
         cfg = gl.get_board_config()
         keys = cfg.keys()
         baud = 40_000_000
-        if 'st7789_baud' in keys:
-            baud = cfg['st7789_baud']
-        port = cfg['st7789_port']
-        psck = cfg['st7789_scl']
-        psda = cfg['st7789_sda']
-        pres = cfg['st7789_res']
-        pdc = cfg['st7789_dc']
-        pcs = cfg['st7789_cs']
+        if 'spi_baud' in keys:
+            baud = cfg['spi_baud']
+        port = cfg['spi_port']
+        psck = cfg['spi_scl']
+        psda = cfg['spi_sda']
+        pres = cfg['spi_res']
+        pdc = cfg['spi_dc']
+        pcs = cfg['spi_cs']
         rotate = 0
         if 'st7789_rotate' in keys:
             rotate = cfg['st7789_rotate']
