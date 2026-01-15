@@ -58,7 +58,7 @@ from LTGRAY to VVLTGRAY (bcd\_clock.cfg).
 If you are unsure about which pins to use to control your display, use the pins
 as defined in the display specific configuration files.
 
-Here is a list of the defulat hardware connections used on the Raspberry PICO 2W;
+Here is a list of the default hardware connections used on the Raspberry PICO 2W;
 
 LED (optional)<br>
 GPIO 15
@@ -74,13 +74,13 @@ correctly on my microprocessors.
 
 SSD1306 (ssd1306.cfg)<br>
 SH1106 (sh1106.cfg)<br>
-The following pins are used for the I2C bus (port 1);
+The following pins are used for the I2C bus (port 1);<br>
 GPIO 18         I2C SDA<br>
 GPIO 19         I2C SCL<br>
 
 ST7735 (st7735.cfg)<br>
 ST7789 (st7789.cfg)<br>
-The following pins are used for the SPI bus (port 0)
+The following pins are used for the SPI bus (port 0)<br>
 GPIO 18         SPI SCK  (SCL)<br>
 GPIO 19         SPI MOSI (SDA)<br>
 GPIO 16         SPI MISO (DC)<br>
