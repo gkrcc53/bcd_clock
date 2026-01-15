@@ -1,9 +1,10 @@
 # bcd clock application using display abstraction layer
 #
 # Configuration options
-#   debug      - output debug information
-#   verbose    - if debug, output copious information
+#   debug       - output debug information
+#   verbose     - if debug, output copious information
 #   display_rtc - if true, output RTC time directly, else RTC=UTC use genlib for DST compensation
+#   show_digits - call show() after each digit, False if not defined
 #   bkg_color   - color of background pixels, else "black"
 #   frame_color - color of frame pixels, else "ltgray"
 #   colon_color - color of blinking colons, else "vltgray"
@@ -77,11 +78,16 @@ if debug:
 
 display_rtc = 'display_rtc' in keys and cfg['display_rtc']
 
+show_digits = False
+if 'show_digits' in keys:
+    show_digits = cfg['show_digits']
+
 # Initialize common hardware
 # Optional LED to show activity, not currectly used
 led = None
 if 'LED' in keys:
     led = Pin(cfg['LED'], Pin.OUT)
+    led.off()
 
 # Optional button to stop program cleanly
 stop = False
@@ -95,6 +101,9 @@ btn = None
 if 'BTN' in keys:
     btn = Pin(cfg['BTN'], Pin.IN, Pin.PULL_UP)
     btn.irq(handler=btn_isr, trigger=Pin.IRQ_FALLING)
+
+# Seems to help sometimes...
+gc.collect()
 
 # Optional LAN connection to update RTC periodically
 lan = None
@@ -364,7 +373,11 @@ def test():
     display.fill(bcolor)
     draw_frame()
     update_hours(23)
+    if show_digits:
+        display.show()
     update_minutes(59)
+    if show_digits:
+        display.show()
     update_seconds(59)
     display.show()
 
@@ -387,7 +400,11 @@ def update_time():
         mins = lt[4]
         secs = lt[5]
     update_hours(hours)
+    if show_digits:
+        display.show()
     update_minutes(mins)
+    if show_digits:
+        display.show()
     update_seconds(secs)
     display.show()
 
