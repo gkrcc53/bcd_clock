@@ -6,6 +6,10 @@ from ssd1306 import SSD1306_I2C
 import oledcolor as COLOR
 
 cfg = gl.get_board_config()
+hcfg = gl.get_config('hw.cfg')
+cfg |= hcfg
+dcfg = gl.get_config('display.cfg')
+cfg |= dcfg
 keys = cfg.keys()
 
 # Screen errors seen at ssd1306 freq 300000

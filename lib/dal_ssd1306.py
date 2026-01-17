@@ -40,9 +40,8 @@ class DAL(SSD1306_I2C):
     VVLTGRAY  = COLOR.VVLTGRAY
 
     # Display initialization
-    def __init__(self):
+    def __init__(self, cfg):
         # Get display configuration
-        cfg = gl.get_board_config()
         keys = cfg.keys()
         if 'i2c_sda' not in keys:
             print('I2C communication not configured')

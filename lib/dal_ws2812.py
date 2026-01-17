@@ -34,8 +34,7 @@ class DAL(WS2812):
     VVLTGRAY  = COLOR.VVLTGRAY
 
     # Display initialization
-    def __init__(self):
-        cfg = gl.get_board_config()
+    def __init__(self, cfg):
         keys = cfg.keys()
         if 'ws2812_din' not in keys:
             print('WS2812 display not configured')

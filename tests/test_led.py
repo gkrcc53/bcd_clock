@@ -5,6 +5,8 @@ from machine import Pin
 import genlib as gl
 
 cfg = gl.get_board_config()
+hcfg = gl.get_config('hw.cfg')
+cfg = cfg | hcfg
 keys = cfg.keys()
 
 if not 'LED' in keys:

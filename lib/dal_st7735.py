@@ -47,15 +47,14 @@ class DAL(ST7735):
     VVLTGRAY  = COLOR.VVLTGRAY
 
     # Display initialization
-    def __init__(self):
+    def __init__(self, cfg):
         # Define initialization function dictionary
         inits = {"initr"  : self.initr,
                  "initb"  : self.initb,
                  "initb2" : self.initb2,
                  "initg"  : self.initg}
         
-        # Get board configuration
-        cfg = gl.get_board_config()
+        # Get configuration keys
         keys = cfg.keys()
         
         # Get driver settings

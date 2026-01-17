@@ -8,6 +8,7 @@
 #   neopixel_rows         * panel row count
 #   neopixel_cols         * panel column count
 #   neopixel_brightness   - brightness factor, 0.1 if not defined [0..1]
+#   neopixel_drive        - Pin drive value if supported, 0 if not defined
 
 from machine import Pin
 from neopixel import NeoPixel
@@ -58,8 +59,7 @@ class DAL(NeoPixel):
     VVLTGRAY  = COLOR.VVLTGRAY
 
     # Display initialization
-    def __init__(self):
-        cfg = gl.get_board_config()
+    def __init__(self, cfg):
         keys = cfg.keys()
         if 'neopixel_din' not in keys:
             print('neopixel data pin not configured')
@@ -72,8 +72,17 @@ class DAL(NeoPixel):
         orient = cfg['neopixel_orientation']
         if 'neopixel_brightness' in keys:
             bright = cfg['neopixel_brightness']
+        drive = 0
+        if 'neopixel_drive' in keys:
+            drive = cfg['neopixel_drive']
         self._lin2xy = _ura2xy if orient == ORIENTATION_UPPER_RIGHT_ALT else _uln2xy
-        super().__init__(Pin(din), self._pixel_cnt)
+        dname = f'DRIVE_{drive}'
+        if dname in dir(Pin):
+            drive = Pin.__dict__[dname]
+            dpin = Pin(din, drive=drive)
+        else:
+            dpin = Pin(din)
+        super().__init__(dpin, self._pixel_cnt)
         self._brightness = bright
         self.clear()
         # virtual pixel size

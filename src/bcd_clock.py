@@ -26,29 +26,28 @@ import genlib as gl
 
 print()
 
-# Get platform configuration
-if not gl.file_exists('board.py'):
-    print('Board name file (board.py) not found')
-    sys.exit(1)
-board = gl.get_board_name()
-if board == gl._UNDEFINED:
-    print('Board name is not correctly defined')
-    sys.exit(1)
-bdcfg = f'{board}.cfg'
-if not gl.file_exists(bdcfg):
-    print(f'Board configuration file {bdcfg} not found')
-    sys.exit(1)
-cfg = gl.get_config(bdcfg)
+# Get optional platform configuration
+cfg = gl.get_board_config()
 
-# Get application configuration
-appcfg = 'bcd_clock.cfg'
-if not gl.file_exists(appcfg):
-    print(f'Application configuration file {appcfg} not found')
+# Merge hardware configuration
+if not gl.file_exists('hw.cfg'):
+    print('Platform interfaces not configured')
     sys.exit(1)
-pcfg = gl.get_config(appcfg)
+hcfg = gl.get_config('hw.cfg')
+cfg |= hcfg
 
-# Application configuration overrides platform settings
+# Merge optional application configuration
+pcfg = gl.get_config('bcd_clock.cfg')
 cfg = cfg | pcfg
+
+# Merge display configuration
+if not gl.file_exists('display.cfg'):
+    print('Display not configured')
+    sys.exit(1)
+dcfg = gl.get_config('display.cfg')
+cfg |= dcfg
+
+# Get list of configuration keys
 keys = cfg.keys()
 
 # Get DAL module name
@@ -60,13 +59,14 @@ if not gl.module_available(dal_module):
     print(f'DAL implementation {dal_module} not available')
     sys.exit(1)
 
-# Optional DAL configuration overrides platform and application settings
+# Optional DAL configuration overrides other settings
 dalcfg = f'{dal_module}.cfg'
 if gl.file_exists(dalcfg):
     dcfg = gl.get_config(dalcfg)
     cfg = cfg | dcfg
     keys = cfg.keys()
 
+# Evaluate debug options first
 debug = 'debug' in cfg and cfg['debug']
 verbose = False
 if debug:
@@ -75,6 +75,7 @@ if debug:
         print(f'{key:25}{cfg[key]}')
     print()
 
+# Evaluate other program options
 display_rtc = 'display_rtc' in keys and cfg['display_rtc']
 
 show_digits = False
@@ -82,7 +83,20 @@ if 'show_digits' in keys:
     show_digits = cfg['show_digits']
 
 # Initialize common hardware
-# Optional LED to show activity, not currectly used
+# Optional LED to show activity
+blink_cnt = 1
+def blink():
+    global led, blink_cnt
+    if led is not None:
+        cnt = blink_cnt
+        while cnt > 0:
+            led.on()
+            time.sleep(0.2)
+            led.off()
+            time.sleep(0.2)
+            cnt -= 1
+        blink_cnt += 1
+
 led = None
 if 'LED' in keys:
     led = Pin(cfg['LED'], Pin.OUT)
@@ -104,25 +118,8 @@ if 'BTN' in keys:
 # Seems to help sometimes...
 gc.collect()
 
-# Optional LAN connection to update RTC periodically
-# Only import network library if required
-lan = None
-if gl.file_exists('lan.cfg'):
-    from lan import LAN
-    lan = LAN()
-    if debug:
-        print('Connecting to LAN')
-    if not lan.connect():
-        print('LAN connection failed')
-        sys.exit(1)
-    if debug:
-        print('Updating local time')
-    if not lan.update_rtc():
-        print('RTC update failed')
-        exit(1)
-
 # Initialize display
-display = __import__(dal_module).DAL()
+display = __import__(dal_module).DAL(cfg)
 if debug:
     print('Display initialized')
 
@@ -164,28 +161,28 @@ if 'frame_color' in keys:
     if temp in ckeys:
         fcolor = colors[temp]
 
-# colon color
+# Colon color
 ccolor = display.VLTGRAY
 if 'colon_color' in keys:
     temp = cfg['colon_color']
     if temp in ckeys:
         ccolor = colors[temp]
 
-# hour color
+# Hour color
 hcolor = display.RED
 if 'hour_color' in keys:
     temp = cfg['hour_color']
     if temp in ckeys:
         hcolor = colors[temp]
 
-# min color
+# Min color
 mcolor = display.GREEN
 if 'min_color' in keys:
     temp = cfg['min_color']
     if temp in ckeys:
         mcolor = colors[temp]
 
-# sec color
+# Sec color
 scolor = display.BLUE
 if 'sec_color' in keys:
     temp = cfg['sec_color']
@@ -201,8 +198,28 @@ pixel_y = dal_cfg['pixel_x']
 border = dal_cfg['border']
 size = display.size
 
-# update the LED display matrix with a bcd representation of the time
-# minimum geometric requirement 8 * 4 'virtual' pixels (6 * 4 w/o colons)
+# Display initialization complete
+blink()
+
+# Optional LAN connection to update RTC periodically
+# Only import network library if required
+lan = None
+if gl.file_exists('lan.cfg'):
+    from lan import LAN
+    lan = LAN()
+    if debug:
+        print('Connecting to LAN')
+    if not lan.connect():
+        print('LAN connection failed')
+        sys.exit(1)
+    if debug:
+        print('Updating local time')
+    if not lan.update_rtc():
+        print('RTC update failed')
+        exit(1)
+
+# update the display screen with a bcd representation of the time
+# minimum geometric requirement 8 * 4 'virtual' pixels (6 digits + 2 colons)
 
 # Display clock frame to make BCD visual interpretation easier
 def draw_frame():
@@ -371,6 +388,9 @@ def update_seconds(val):
 
 # Display test for graphics fine-tuning
 def test():
+    global last_hour, last_min, last_sec, dots_on
+    last_hour = last_min = last_sec = -1
+    dots_on = True
     display.fill(bcolor)
     draw_frame()
     update_hours(23)
@@ -409,37 +429,41 @@ def update_time():
     update_seconds(secs)
     display.show()
 
-# update RTC (via NTP) once an hour (seconds)
-update_interval = 60 * 60
+# main loop sleep time (seconds)
+loop_delay = 0.1
 
-# update clock interval (seconds)
-clock_interval = 0.1
+# update RTC periodically (seconds)
+rtc_interval = 60 * 60
+rtc_counter = rtc_interval / loop_delay
 
 # do periodic garbage collection (seconds)
 collect_interval = 300
-collect_counter = collect_interval / clock_interval
+collect_counter = collect_interval / loop_delay
 
 # Program loop
 if debug:
     print('Starting clock loop')
+    
+# Main loop started
+blink()
 
 try:
-    tstart = int(time.time())
     display.fill(bcolor)
     draw_frame()
     loop_cnt = 0
     while not stop:
         loop_cnt += 1
-        if time.time() - tstart >= update_interval:
+        if loop_cnt % rtc_counter == 0:
             if debug:
                 print('Updating RTC')
             if lan is not None and not lan.update_rtc():
                 print('RTC update failed')
-            tstart = time.time()
-        update_time()
-        time.sleep(0.1)
         if loop_cnt % collect_counter == 0:
+            if debug:
+                print('Garbage collection')
             gc.collect()
+        update_time()
+        time.sleep(loop_delay)
 except KeyboardInterrupt:
     pass
 finally:

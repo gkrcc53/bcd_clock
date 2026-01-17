@@ -6,6 +6,8 @@ print()
 
 # Get board specific configuration
 cfg = gl.get_board_config()
+hcfg = gl.get_config('hw.cfg')
+cfg |= hcfg
 keys = cfg.keys()
 
 if 'i2c_sda' not in keys:

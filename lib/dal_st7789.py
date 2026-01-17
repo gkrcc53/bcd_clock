@@ -48,9 +48,8 @@ class DAL(ST7789):
     BGR = 8
 
     # Display initialization
-    def __init__(self):
+    def __init__(self, cfg):
         # Get display configuration
-        cfg = gl.get_board_config()
         keys = cfg.keys()
         baud = 40_000_000
         if 'spi_baud' in keys:

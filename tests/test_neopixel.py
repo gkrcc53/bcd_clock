@@ -12,8 +12,10 @@ from neopixel import NeoPixel
 print()
 
 cfg = gl.get_board_config()
-pcfg = gl.get_config('test_neopixel.cfg')
-cfg = cfg | pcfg
+hcfg = gl.get_config('hw.cfg')
+cfg = cfg | hcfg
+dcfg = gl.get_config('display.cfg')
+cfg |= dcfg
 keys = cfg.keys()
 debug = 'debug' in cfg and cfg['debug']
 verbose = False

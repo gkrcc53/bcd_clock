@@ -319,8 +319,8 @@ def get_config(file) -> {}:
         with open(file, 'r') as fd:
             cfg = json.load(fd)
         return cfg
-    except OSError:
-        pass
+    except Exception as e:
+        print(f'Exception {e} in \'{file}\' ignored')
     return {}
 
 # Return the board configuration filename

@@ -1,10 +1,19 @@
 # Simple SH1106 display test
+#
+# I have seen problems initializing this display, the problems seem to
+# go away after a power on/off cycle.
+
 import time
 from machine import Pin, I2C
 import genlib as gl
 from sh1106 import SH1106_I2C
 import oledcolor as COLOR
+
 cfg = gl.get_board_config()
+hcfg = gl.get_config('hw.cfg')
+cfg |= hcfg
+dcfg = gl.get_config('display.cfg')
+cfg |= dcfg
 keys = cfg.keys()
 
 freq = cfg['i2c_freq']

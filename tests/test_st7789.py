@@ -6,22 +6,11 @@ from st7789 import ST7789
 import tftcolor as TFT
 import vga2_16x32 as font
 
-# POWER
-#   GND      GND
-#   VCC      3.3V
-
-# Pin assignments
-#   blk      3.3V
-
-# ESP32 S2 mini
-# port = 2
-# scl = 35
-# sda = 36
-# res = 33
-# dc = 37
-# cs = 34
-
 cfg = gl.get_board_config()
+hcfg = gl.get_config('hw.cfg')
+cfg |= hcfg
+dcfg = gl.get_config('display.cfg')
+cfg |= dcfg
 keys = cfg.keys()
 debug = 'debug' in keys and cfg['debug']
 if debug:

@@ -7,6 +7,10 @@ from sysfont import sysfont
 import tftcolor as TFT
 
 cfg = gl.get_board_config()
+hcfg = gl.get_config('hw.cfg')
+cfg |= hcfg
+dcfg = gl.get_config('display.cfg')
+cfg |= dcfg
 keys = cfg.keys()
 debug = 'debug' in keys and cfg['debug']
 if debug:
