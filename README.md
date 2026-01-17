@@ -4,7 +4,7 @@ BCD Clock MicroPython application
 This application uses common display hardware, including SH1106,
 SSD1306, ST7735 and ST7789 screens and WS2812 panels to display a simple
 BCD clock. The application code was developed and tested on Raspberry Pi Pico 2W,
-ESP32 and ESP32 S2 mini microprocessors. It is largely platform independent and
+ESP32, ESP32 S2 mini and ESP32 S3 microprocessors. It is largely platform independent and
 should work on other MicroPython platforms that support the required interface(s).
 
 Installation
@@ -128,6 +128,8 @@ ESP32<br>
 - MicroPython v1.27.0 on 2025-12-09; Generic ESP32 module with ESP32<br>
 ESP32 S2 mini<br>
 - MicroPython v1.27.0 on 2025-12-09; LOLIN_S2_MINI with ESP32-S2FN4R2<br>
+ESP32 S3<br>
+- MicroPython v1.27.0 on 2025-12-09; Generic ESP32S3 module with ESP32S3
 
 Configuration options are stored in json files (\*.cfg). The top level
 configuration is stored in board.cfg. This optional file contains global options
