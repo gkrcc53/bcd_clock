@@ -98,7 +98,7 @@ def blink():
         blink_cnt += 1
 
 led = None
-if 'LED' in keys:
+if 'LED' in keys and cfg['LED'] != -1:
     led = Pin(cfg['LED'], Pin.OUT)
     led.off()
 
@@ -111,7 +111,7 @@ def btn_isr(pin):
         stop = True
 
 btn = None
-if 'BTN' in keys:
+if 'BTN' in keys and cfg['BTN'] != -1:
     btn = Pin(cfg['BTN'], Pin.IN, Pin.PULL_UP)
     btn.irq(handler=btn_isr, trigger=Pin.IRQ_FALLING)
 
