@@ -4,8 +4,9 @@ BCD Clock MicroPython application
 This application uses common display hardware, including SH1106,
 SSD1306, ST7735 and ST7789 screens and WS2812 panels to display a simple
 BCD clock. The application code was developed and tested on Raspberry Pi Pico 2W,
-ESP32, ESP32 S2 mini and ESP32 S3 microprocessors. It is largely platform independent and
-should work on other MicroPython platforms that support the required interface(s).
+ESP32, ESP32 CAM, ESP32 S2 mini and ESP32 S3 microprocessors. It is largely platform
+independent and should work on other MicroPython platforms that support the required
+interface(s).
 
 Installation
 ------------
@@ -57,7 +58,14 @@ power source. Running the application as is, my 16x16 panel typically draws abou
 the 8x8 panel draws about 75mA. The default LED intensity is reduced significantly in the
 base driver. The current can be further reduced by changing the frame color
 from LTGRAY to VVLTGRAY (bcd\_clock.cfg).
- 
+
+The ESP32 CAM platform has very few free GPIO pins. Although it can work, it is not
+recommended to use any display that requires an SPI interface (st7735/st7789). Note that
+I used the generic ESP32 version of micropython. I did not test the special versions
+that include camera support. If the LED and BTN are active, all displays use GPIO pins
+that conflict with the internal SD card interface. The displays work, but the SD card
+is no longer accessible.
+
 If you are unsure about which pins to use to control your display, use the pins
 as defined in the platform specific configuration files.
 
@@ -130,6 +138,8 @@ ESP32 S2 mini<br>
 - MicroPython v1.27.0 on 2025-12-09; LOLIN_S2_MINI with ESP32-S2FN4R2<br>
 ESP32 S3<br>
 - MicroPython v1.27.0 on 2025-12-09; Generic ESP32S3 module with ESP32S3
+ESP32 CAM<br>
+- MicroPython v1.27.0 on 2025-12-09; Generic ESP32 module with ESP32<br>
 
 Configuration options are stored in json files (\*.cfg). The top level
 configuration is stored in board.cfg. This optional file contains global options
