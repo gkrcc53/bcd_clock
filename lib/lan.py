@@ -31,12 +31,13 @@ class LAN:
         lcfg = gl.get_config('lan.cfg')
         # LAN configuration can override default board configuration
         self.cfg = cfg | lcfg
+        print(self.cfg)
         self.keys = self.cfg.keys()
         self.connected = False
         self.wlan = None
         self.ntp_host = 'pool.ntp.org'
         if 'ntp_host' in self.keys:
-            self.ntp_host = cfg['ntp_host']
+            self.ntp_host = self.cfg['ntp_host']
         self._debug = 'debug' in self.keys and self.cfg['debug']
         if self._debug:
             for key in sorted(self.keys):
