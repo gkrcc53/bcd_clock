@@ -27,10 +27,10 @@ class LAN:
     def __init__(self):
         # some network implementation do not support STAT_CONNECT_FAIL
         self.hasFail = 'STAT_CONNECT_FAIL' in dir(network)
-        cfg = gl.get_config('lan.cfg')
-        bcfg = gl.get_board_config()
-        # board configuration can override default lan configuration
-        self.cfg = cfg | bcfg
+        cfg = gl.get_board_config()
+        lcfg = gl.get_config('lan.cfg')
+        # LAN configuration can override default board configuration
+        self.cfg = cfg | lcfg
         self.keys = self.cfg.keys()
         self.connected = False
         self.wlan = None
