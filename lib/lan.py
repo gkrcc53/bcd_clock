@@ -31,7 +31,6 @@ class LAN:
         lcfg = gl.get_config('lan.cfg')
         # LAN configuration can override default board configuration
         self.cfg = cfg | lcfg
-        print(self.cfg)
         self.keys = self.cfg.keys()
         self.connected = False
         self.wlan = None
