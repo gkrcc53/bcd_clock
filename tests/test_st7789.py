@@ -1,9 +1,16 @@
 # Simple ST7789 display test
-from machine import SPI,Pin
-import time
+
+# Make sure we're on the right platform
+import sys
 import genlib as gl
+if gl.platform == 'linux':
+    print('This program/module was not written for this platform')
+    sys.exit(1)
+
+from machine import SPI, Pin
+import time
 from st7789 import ST7789
-import tftcolor as TFT
+import tftcolor as COLOR
 import vga2_16x32 as font
 
 cfg = gl.get_board_config()
@@ -24,21 +31,34 @@ psda = cfg['spi_sda']
 pres = cfg['spi_res']
 pdc = cfg['spi_dc']
 pcs = cfg['spi_cs']
-baud = cfg['spi_baud']
-width = cfg['st7789_width']
-height = cfg['st7789_height']
+baud = 40000000
+if 'spi_baud' in keys:
+    baud = cfg['spi_baud']
+width = 240
+if 'st7789_width' in keys:
+    width = cfg['st7789_width']
+height = 320
+if 'st7789_height' in keys:
+    height = cfg['st7789_height']
+invert = False
+if 'st7789_color_invert' in keys:
+    invert = cfg['st7789_color_invert']
 
 # Normal initialization w/o rotation
-spi=SPI(port, baudrate=baud, sck=psck, mosi=psda, miso=pdc)
-tft=ST7789(spi,width,height,dc=Pin(pdc,Pin.OUT),reset=Pin(pres,Pin.OUT),cs=Pin(pcs,Pin.OUT))
+spi = SPI(port, baudrate=baud, sck=psck, mosi=psda, miso=pdc)
+tft = ST7789(spi, width, height,
+             dc=Pin(pdc, Pin.OUT),
+             reset=Pin(pres, Pin.OUT),
+             cs=Pin(pcs, Pin.OUT))
+tft.inversion_mode(invert)
 
 # try something simple
-colors = (TFT.RED, TFT.GREEN, TFT.BLUE, TFT.WHITE)
+colors = (COLOR.RED, COLOR.GREEN, COLOR.BLUE, COLOR.WHITE)
 for i in range(4):
     tft.rotation(i)
 
-    ul=(0,0)
-    lr=(319,239) if i & 1 == 1 else (239,319)
+    ul = (0, 0)
+    lr = (height-1, width-1) if i & 1 == 1 else (width-1, height-1)
     tft.line(ul[0], ul[1], lr[0], ul[1], colors[i])
     tft.line(lr[0], ul[1], lr[0], lr[1], colors[i])
     tft.line(lr[0], lr[1], ul[0], lr[1], colors[i])
@@ -47,9 +67,7 @@ for i in range(4):
     msg = f'Rotation({i})'
     tft.text(font, msg, 3, 3, colors[i])
 
-    tft.fill_rect(40, 40, 20, 20, colors[i])
-    
-    time.sleep(1)
+    tft.local_fill_rect(40, 40, 20, 20, colors[i])
 
 time.sleep(5)
 tft.clear()

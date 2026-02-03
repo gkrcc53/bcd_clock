@@ -3,20 +3,31 @@
 #
 # Configuration (* --> required)
 #   display_type          * "neopixel"
+#   test_power            - test maximum power drain, default true
 #   neopixel_din          * GPIO pin used to send data to the display
-#   neopixel_orientation  * 5 = UPPER_RIGHT_ALTERNATE else 0 = UPPER_LEFT_NORMAL
+#   neopixel_pixel_order  * 5 = UPPER_RIGHT_ALTERNATE else
+#                           0 = UPPER_LEFT_NORMAL
 #   neopixel_rows         * panel row count
 #   neopixel_cols         * panel column count
-#   neopixel_brightness   - brightness factor, 0.1 if not defined [0..1]
-#   neopixel_drive        - Pin drive value if supported, 0 if not defined
+#   neopixel_brightness   - [0..1], 0.1 if not defined
+#   neopixel_drive        - Pin drive value if supported, else 0
+#   neopixel_show_delay   - 10ms if not defined
 
+# Make sure we're on the right platform
+import sys
+import genlib as gl
+if gl.platform == 'linux':
+    print('This module was not written for this platform')
+    sys.exit()
+
+import time
 from machine import Pin
 from neopixel import NeoPixel
 import rgbcolor as COLOR
-import genlib as gl
 
-ORIENTATION_UPPER_LEFT_NORM = 0
-ORIENTATION_UPPER_RIGHT_ALT = 5
+ORDER_UPPER_LEFT_NORM = 0
+ORDER_UPPER_RIGHT_ALT = 5
+
 
 # Convert a led array position to a linear 2D coordinate position
 # for upper right alternating orientation.
@@ -30,6 +41,7 @@ def _ura2xy(pos, cols, rows):
         pos %= cols
         return row * cols + cols - 1 - pos
 
+
 # Convert a led array position to a linear 2D coordinate position
 # for upper left normal orientation.
 # array[0] is at upper left corner of the led array
@@ -38,25 +50,26 @@ def _ura2xy(pos, cols, rows):
 def _uln2xy(pos, cols, rows):
     return pos
 
+
 class DAL(NeoPixel):
-    RED       = COLOR.RED
-    LTRED     = COLOR.LTRED
-    GREEN     = COLOR.GREEN
-    LTGREEN   = COLOR.LTGREEN
-    BLUE      = COLOR.BLUE
-    LTBLUE    = COLOR.LTBLUE
-    CYAN      = COLOR.CYAN
-    LTCYAN    = COLOR.LTCYAN
-    MAGENTA   = COLOR.MAGENTA
+    RED = COLOR.RED
+    LTRED = COLOR.LTRED
+    GREEN = COLOR.GREEN
+    LTGREEN = COLOR.LTGREEN
+    BLUE = COLOR.BLUE
+    LTBLUE = COLOR.LTBLUE
+    CYAN = COLOR.CYAN
+    LTCYAN = COLOR.LTCYAN
+    MAGENTA = COLOR.MAGENTA
     LTMAGENTA = COLOR.LTMAGENTA
-    YELLOW    = COLOR.YELLOW
-    LTYELLOW  = COLOR.LTYELLOW
-    BLACK     = COLOR.BLACK
-    WHITE     = COLOR.WHITE
-    GRAY      = COLOR.GRAY
-    LTGRAY    = COLOR.LTGRAY
-    VLTGRAY   = COLOR.VLTGRAY
-    VVLTGRAY  = COLOR.VVLTGRAY
+    YELLOW = COLOR.YELLOW
+    LTYELLOW = COLOR.LTYELLOW
+    BLACK = COLOR.BLACK
+    WHITE = COLOR.WHITE
+    GRAY = COLOR.GRAY
+    LTGRAY = COLOR.LTGRAY
+    VLTGRAY = COLOR.VLTGRAY
+    VVLTGRAY = COLOR.VVLTGRAY
 
     # Display initialization
     def __init__(self, cfg):
@@ -67,22 +80,25 @@ class DAL(NeoPixel):
         din = cfg['neopixel_din']
         self.rows = cfg['neopixel_rows']
         self.cols = cfg['neopixel_cols']
-        self._pixel_cnt = self.rows * self.cols
+        self.pixel_cnt = self.rows * self.cols
         self.brightness = 0.1
-        orient = cfg['neopixel_orientation']
+        self.show_delay = 10
+        if 'neopixel_show_delay' in keys:
+            self.show_delay = cfg['neopixel_show_delay']
+        order = cfg['neopixel_pixel_order']
         if 'neopixel_brightness' in keys:
             bright = cfg['neopixel_brightness']
         drive = 0
         if 'neopixel_drive' in keys:
             drive = cfg['neopixel_drive']
-        self._lin2xy = _ura2xy if orient == ORIENTATION_UPPER_RIGHT_ALT else _uln2xy
+        self._lin2xy = _ura2xy if order == ORDER_UPPER_RIGHT_ALT else _uln2xy
         dname = f'DRIVE_{drive}'
         if dname in dir(Pin):
             drive = Pin.__dict__[dname]
             dpin = Pin(din, drive=drive)
         else:
             dpin = Pin(din)
-        super().__init__(dpin, self._pixel_cnt)
+        super().__init__(dpin, self.pixel_cnt)
         self._brightness = bright
         self.clear()
         # virtual pixel size
@@ -111,7 +127,7 @@ class DAL(NeoPixel):
     @property
     def brightness(self):
         return self._brightness
-    
+
     # Set the brightness factor
     @brightness.setter
     def brightness(self, val):
@@ -124,24 +140,36 @@ class DAL(NeoPixel):
     # Return the 2D size of the display
     @property
     def size(self):
-        return(self.cols, self.rows)
+        return (self.cols, self.rows)
 
     # Update the display
     def show(self):
         self.write()
+        if self.show_delay > 0:
+            time.sleep_ms(self.show_delay)
 
     # set all the pixels to black
     def clear(self, show=True):
-        self.fill((0,0,0))
+        self.fill(COLOR.BLACK)
         if show:
             self.show()
+
+    # Apply brightness factor to color
+    def dim(self, color):
+        red = int(color[0] * self.brightness)
+        grn = int(color[1] * self.brightness)
+        blu = int(color[2] * self.brightness)
+        return (red, grn, blu)
+
+    # Set the color of a single pixel in 1d
+    def pixel1d(self, pos, color):
+        if (pos >= 0) and (pos < self.pixel_cnt):
+            self[pos] = self.dim(color)
 
     # Set the color of a single pixel
     def pixel2d(self, x, y, color):
         pos = self._lin2xy(x + y * self.cols, self.cols, self.rows)
-        if (pos > -1) and (pos < self._pixel_cnt):
-            dimmer = (int(color[0]*self.brightness), int(color[1]*self.brightness), int(color[2]*self.brightness))
-            self[pos] = dimmer
+        self.pixel1d(pos, color)
 
     # Draw a horizontal line with the indicated color
     def hline(self, x, y, length, color, show=True):
@@ -149,7 +177,7 @@ class DAL(NeoPixel):
             self.pixel2d(x+i, y, color)
         if show:
             self.show()
-    
+
     # Fill a rectangle with the indicated color
     def fill_rect(self, x, y, lx, ly, color, show=True):
         px = x
@@ -159,7 +187,7 @@ class DAL(NeoPixel):
             py += 1
         if show:
             self.show()
-        
+
     # set single virtual 'pixel' at x, y to color
     def xy_set(self, x, y, color):
         if self.pixel_x == 2:
@@ -172,3 +200,76 @@ class DAL(NeoPixel):
     # Due to resolution, 'dots' (half sized 'pixels') are not supported
     def dot_set(self, x, y, color):
         self.xy_set(x, y, color)
+
+
+if __name__ == "__main__":
+    import time
+    import genlib as gl
+
+    print()
+
+    cfg = gl.get_board_config()
+    hcfg = gl.get_config('hw.cfg')
+    dcfg = gl.get_config('display.cfg')
+    cfg = cfg | hcfg | dcfg
+    display = DAL(cfg)
+
+    test_power = True
+    if 'test_power' in cfg:
+        test_power = cfg['test_power']
+
+    if test_power:
+        print('All white - maximum current drain')
+        # fill is low level driver - no brightness correction
+        display.fill(COLOR.WHITE)
+        display.show()
+        time.sleep(5)
+
+    print('All white - default brightness')
+    display.fill(display.dim(COLOR.WHITE))
+    display.show()
+    time.sleep(5)
+    display.clear()
+
+    print('1D pixels --> [0] = red, [1] = green, [2] = blue')
+    display.pixel1d(0, COLOR.RED)
+    display.pixel1d(1, COLOR.GREEN)
+    display.pixel1d(2, COLOR.BLUE)
+    display.show()
+    time.sleep(5)
+    display.clear()
+
+    print('2D pixels --> [0,0] = red, [1,0] = green, [2,0] = blue, [max,max] = yellow')
+    display.pixel2d(0, 0, COLOR.LTRED)
+    display.pixel2d(1, 0, COLOR.LTGREEN)
+    display.pixel2d(2, 0, COLOR.LTBLUE)
+    display.pixel2d(display.cols-1, display.rows-1, COLOR.LTYELLOW)
+    display.show()
+    time.sleep(5)
+    display.clear()
+
+    print('2D pixels --> [0,0] white, if [8,0]==[0,1] white, if [16,0]==[0,1] white')
+    display.pixel2d(0, 0, COLOR.LTGRAY)
+    display.pixel2d(8, 0, COLOR.LTRED)
+    display.pixel2d(0, 1, COLOR.LTGRAY)
+    display.pixel2d(16, 0, COLOR.LTRED)
+    display.pixel2d(0, 1, COLOR.LTGRAY)
+    display.show()
+    time.sleep(5)
+    display.clear()
+
+    print('1D walk')
+    for pos in range(display.pixel_cnt):
+        display.pixel1d(pos, COLOR.LTYELLOW)
+        display.show()
+        display.pixel1d(pos, COLOR.BLACK)
+        display.show()
+
+    print('2D walk')
+    for y in range(display.rows):
+        for x in range(display.cols):
+            display.pixel2d(x, y, COLOR.WHITE)
+            display.show()
+            display.pixel2d(x, y, COLOR.BLACK)
+            display.show()
+    display.clear()

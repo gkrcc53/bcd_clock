@@ -426,7 +426,7 @@ class ST7789:
             length (int): length of line
             color (int): 565 encoded color
         """
-        self.fill_rect(x, y, 1, length, color)
+        self.local_fill_rect(x, y, 1, length, color)
 
     def hline(self, x, y, length, color):
         """
@@ -438,7 +438,7 @@ class ST7789:
             length (int): length of line
             color (int): 565 encoded color
         """
-        self.fill_rect(x, y, length, 1, color)
+        self.local_fill_rect(x, y, length, 1, color)
 
     def pixel(self, x, y, color):
         """
@@ -487,7 +487,7 @@ class ST7789:
         self.vline(x + w - 1, y, h, color)
         self.hline(x, y + h - 1, w, color)
 
-    def fill_rect(self, x, y, width, height, color):
+    def local_fill_rect(self, x, y, width, height, color):
         """
         Draw a rectangle at the given location, size and filled with color.
 
@@ -518,7 +518,7 @@ class ST7789:
         Args:
             color (int): 565 encoded color
         """
-        self.fill_rect(0, 0, self.width, self.height, color)
+        self.local_fill_rect(0, 0, self.width, self.height, color)
 
     def clear(self, color=BLACK):
         self.fill(color)

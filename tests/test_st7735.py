@@ -1,10 +1,19 @@
 # Simple ST7735 display test
+
+# Make sure we're on the right platform
+import sys
+import genlib as gl
+if gl.platform == 'linux':
+    print('This program/module was not written for this platform')
+    sys.exit(1)
+
 import time
 from machine import SPI
-import genlib as gl
-from st7735 import ST7735
+from mpy_st7735 import ST7735
 from sysfont import sysfont
-import tftcolor as TFT
+import tftcolor as COLOR
+
+print()
 
 cfg = gl.get_board_config()
 hcfg = gl.get_config('hw.cfg')
@@ -27,14 +36,16 @@ psda = cfg['spi_sda']
 pres = cfg['spi_res']
 pdc = cfg['spi_dc']
 pcs = cfg['spi_cs']
-baud = cfg['spi_baud']
+baud = 40000000
+if 'spi_baud' in keys:
+    baud = cfg['spi_baud']
 
 # time program
 tstart = gl.time_ms()
 
 # Normal initialization w/o rotation
-spi=SPI(port, baudrate=baud, sck=psck, mosi=psda, miso=pdc)
-tft=ST7735(spi,pdc,pres,pcs)
+spi = SPI(port, baudrate=baud, sck=psck, mosi=psda, miso=pdc)
+tft = ST7735(spi, pdc, pres, pcs)
 tft.rgb(True)
 tft.initr()
 if offset:
@@ -44,20 +55,20 @@ if offset:
 # try something simple
 tft.clear()
 
-ul=(0,0)
-lr=(tft.size[0]-1, tft.size[1]-1)
-tft.line((ul[0], ul[1]), (lr[0], ul[1]), TFT.WHITE)
-tft.line((lr[0], ul[1]), (lr[0], lr[1]), TFT.WHITE)
-tft.line((lr[0], lr[1]), (ul[0], lr[1]), TFT.WHITE)
-tft.line((ul[0], lr[1]), (ul[0], ul[1]), TFT.WHITE)
+ul = (0, 0)
+lr = (tft.size[0]-1, tft.size[1]-1)
+tft.line((ul[0], ul[1]), (lr[0], ul[1]), COLOR.WHITE)
+tft.line((lr[0], ul[1]), (lr[0], lr[1]), COLOR.WHITE)
+tft.line((lr[0], lr[1]), (ul[0], lr[1]), COLOR.WHITE)
+tft.line((ul[0], lr[1]), (ul[0], ul[1]), COLOR.WHITE)
 
-colors = [TFT.RED, TFT.GREEN, TFT.BLUE, TFT.WHITE]
+colors = [COLOR.RED, COLOR.GREEN, COLOR.BLUE, COLOR.WHITE]
 for i in range(4):
     tft.rotation(i)
 
     msg = f'Rotation({i})'
     tft.text((3, 3), msg, colors[i], sysfont, 2, nowrap=True)
-    tft.fill_rect((20,20), (20,20), colors[i])
+    tft.local_fill_rect((20, 20), (20, 20), colors[i])
 
 time.sleep(5)
 tft.clear()

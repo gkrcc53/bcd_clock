@@ -3,10 +3,11 @@
 #
 # Configuration (* --> required)
 #   display_type      * "st7735"
-#   st7735_offset     - [0, 0] if not defined, reorder settings if necessary
+#   st7735_offset     - [0, 0] if not defined
 #   st7735_rotate     - 0 if not defined, [0..3]
-#   st7735_color_rgb  - True if not defined, else RGB|BGR
-#   st7735_init       - initr if not defined ["initr", "initb", "initb2", "initg"]
+#   st7735_color_rgb  - True if not defined --> RGB, else BGR
+#   st7735_init       - initr if not defined
+#                       ["initr", "initb", "initb2", "initg"]
 #   spi_port          * SPI port 0..1
 #   spi_sda           * SPI mosi pin
 #   spi_scl           * SPI clock pin
@@ -17,48 +18,57 @@
 #
 # Notes
 #   display size fixed at 128x160 in driver
-#   I have some displays that require a non-zero offset parameter, note that the
-#   last definition in the configuration file will be active. Reorder or eliminate
-#   unused offset configuration settings if necessary.
+#   I have some displays that require a non-zero offset parameter,
+#   note that the last definition in the configuration file will be
+#   active. Reorder or eliminate unused offset configuration settings
+#   if necessary.
+
+# Make sure we're on the right platform
+import sys
+import genlib as gl
+if gl.platform == 'linux':
+    print('This module was not written for this platform')
+    sys.exit()
 
 from machine import SPI
-from st7735 import ST7735
+from mpy_st7735 import ST7735
 import tftcolor as COLOR
-import genlib as gl
+from sysfont import sysfont
+
 
 class DAL(ST7735):
-    RED       = COLOR.RED
-    LTRED     = COLOR.LTRED
-    GREEN     = COLOR.GREEN
-    LTGREEN   = COLOR.LTGREEN
-    BLUE      = COLOR.BLUE
-    LTBLUE    = COLOR.LTBLUE
-    CYAN      = COLOR.CYAN
-    LTCYAN    = COLOR.LTCYAN
-    MAGENTA   = COLOR.MAGENTA
+    RED = COLOR.RED
+    LTRED = COLOR.LTRED
+    GREEN = COLOR.GREEN
+    LTGREEN = COLOR.LTGREEN
+    BLUE = COLOR.BLUE
+    LTBLUE = COLOR.LTBLUE
+    CYAN = COLOR.CYAN
+    LTCYAN = COLOR.LTCYAN
+    MAGENTA = COLOR.MAGENTA
     LTMAGENTA = COLOR.LTMAGENTA
-    YELLOW    = COLOR.YELLOW
-    LTYELLOW  = COLOR.LTYELLOW
-    BLACK     = COLOR.BLACK
-    WHITE     = COLOR.WHITE
-    GRAY      = COLOR.GRAY
-    LTGRAY    = COLOR.LTGRAY
-    VLTGRAY   = COLOR.VLTGRAY
-    VVLTGRAY  = COLOR.VVLTGRAY
+    YELLOW = COLOR.YELLOW
+    LTYELLOW = COLOR.LTYELLOW
+    BLACK = COLOR.BLACK
+    WHITE = COLOR.WHITE
+    GRAY = COLOR.GRAY
+    LTGRAY = COLOR.LTGRAY
+    VLTGRAY = COLOR.VLTGRAY
+    VVLTGRAY = COLOR.VVLTGRAY
 
     # Display initialization
     def __init__(self, cfg):
         # Define initialization function dictionary
-        inits = {"initr"  : self.initr,
-                 "initb"  : self.initb,
-                 "initb2" : self.initb2,
-                 "initg"  : self.initg}
-        
+        inits = {"initr": self.initr,
+                 "initb": self.initb,
+                 "initb2": self.initb2,
+                 "initg": self.initg}
+
         # Get configuration keys
         keys = cfg.keys()
-        
+
         # Get driver settings
-        self.debug = 'debug' in keys and cfg['debug']
+        self._debug = 'debug' in keys and cfg['debug']
 
         # SPI interface settings
         baud = 40_000_000
@@ -70,22 +80,22 @@ class DAL(ST7735):
         pres = cfg['spi_res']
         pdc = cfg['spi_dc']
         pcs = cfg['spi_cs']
-        
+
         # Screen offset
         offset = [0, 0]
         if 'st7735_offset' in keys:
             offset = cfg['st7735_offset']
-            
+
         # Screen rotation
         rotate = 0
         if 'st7735_rotate' in keys:
             rotate = cfg['st7735_rotate']
-        
+
         # RGB color interpretation
         color_rgb = True
         if 'st7735_color_rgb' in keys:
             color_rgb = cfg['st7735_color_rgb']
-            
+
         # Screen initialization function
         kinit = 'initr'
         if 'st7735_init' in keys:
@@ -93,38 +103,40 @@ class DAL(ST7735):
             if temp in inits.keys():
                 kinit = temp
 
-        if self.debug:
-            print(f'DAL ST7735 implementation')
+        if self._debug:
+            print('DAL ST7735 implementation')
 
         # SPI initialization
-        spi=SPI(port, baudrate=baud, sck=psck, mosi=psda, miso=pdc)
-        if self.debug:
-            print(f'  Interface {spi}')
-            
+        spi = SPI(port, baudrate=baud, sck=psck, mosi=psda, miso=pdc)
+
         # Display initialization
         super().__init__(spi, pdc, pres, pcs)
         self.rgb(color_rgb)
-        if self.debug:
+        if self._debug:
             yn = '' if color_rgb else 'in'
             print(f'  RGB is {yn}active')
         inits[kinit]()
-        if self.debug:
+        if self._debug:
             print(f'  Initialized using {kinit}')
 
         # Some displays require an offset
         if offset:
             self._offset[0] = offset[0]
             self._offset[1] = offset[1]
-        if self.debug:
+        if self._debug:
             print(f'  Offset set to [{offset[0]}, {offset[1]}]')
         self.rotation(rotate)
-        if self.debug:
+        if self._debug:
             print(f'  Rotation set to {90*rotate} degrees')
         self.clear()
-        
-        # display geometry (vertical orientation)
+
+        # display geometry
         size = self.size
-        
+
+        # simple text scaling
+        self._scale = 1 if size[0] < 128 else 2
+        self.rotate = rotate
+
         # virtual pixel size
         pixel_x = size[0] // 8
         pixel_y = size[1] // 4
@@ -137,7 +149,7 @@ class DAL(ST7735):
 
         self.pixel_x = pixel_size
         self.pixel_y = pixel_size
-        
+
         self.start_x = (size[0] - (8 * (pixel_size + border))) // 2
         self.start_y = (size[1] - (4 * (pixel_size + border))) // 2
 
@@ -154,13 +166,18 @@ class DAL(ST7735):
         config['pixel_y'] = self.pixel_y
         # clock pixel border
         config['border'] = self.border
+        # simple text support
+        twidth = sysfont['Width'] + 1
+        theight = sysfont['Height'] + 1
+        config['text'] = [twidth, theight]
+        config['opaque_text'] = True
         return config
 
     # set single virtual 'pixel' at x, y to color
     def xy_set(self, x, y, color):
         posx = self.start_x + x * (self.pixel_x + self.border)
         posy = self.start_y + y * (self.pixel_y + self.border)
-        super().fill_rect((posx, posy), (self.pixel_x, self.pixel_y), color)
+        super().local_fill_rect((posx, posy), (self.pixel_x, self.pixel_y), color)
 
     # set single virtual 'dot' at x, y to color
     def dot_set(self, x, y, color):
@@ -168,12 +185,16 @@ class DAL(ST7735):
         dot_ofs = dot_size // 2
         posx = self.start_x + dot_ofs + x * (self.pixel_x + self.border)
         posy = self.start_y + dot_ofs + y * (self.pixel_y + self.border)
-        super().fill_rect((posx, posy), (dot_size, dot_size), color)
+        super().local_fill_rect((posx, posy), (dot_size, dot_size), color)
 
     # graphics are immediately visible
     def show(self):
         pass
-    
+
+    # convert low level API
+    def fill_rect(self, x, y, xlen, ylen, color):
+        super().local_fill_rect((x, y), (xlen, ylen), color)
+
     # convert low level API
     def hline(self, x, y, length, color):
         super().hline((x, y), length, color)
@@ -181,3 +202,75 @@ class DAL(ST7735):
     # convert low level API
     def vline(self, x, y, length, color):
         super().vline((x, y), length, color)
+
+    # convert low level API
+    def line(self, x0, y0, x1, y1, color):
+        if x0 == x1:
+            self.vline(x0, y0, y1 - y0, color)
+        elif y0 == y1:
+            self.hline(x0, y0, x1 - y1, color)
+        else:
+            super().line((x0, y0), (x1, y1), color)
+
+    # convert low level API
+    def text(self, text, x, y, color=COLOR.WHITE, scale=0):
+        lscale = self._scale if scale <= 0 else scale
+        super().text((x, y), text, color, sysfont, aSize=lscale)
+
+
+def test1(display):
+    ul = (0, 0)
+    lr = (display.size[0]-1, display.size[1]-1)
+    display.line(ul[0], ul[1], lr[0], ul[1], COLOR.WHITE)
+    display.line(lr[0], ul[1], lr[0], lr[1], COLOR.WHITE)
+    display.line(lr[0], lr[1], ul[0], lr[1], COLOR.WHITE)
+    display.line(ul[0], lr[1], ul[0], ul[1], COLOR.WHITE)
+
+    msg = f'R({display.rotate})'
+    display.text(msg, 10, 3, COLOR.WHITE, scale=2)
+    display.fill_rect(20, 20, 12, 12, COLOR.WHITE)
+    display.show()
+    time.sleep(2)
+
+    display.clear()
+
+
+def test2(display):
+    dcfg = display.configuration()
+    start_x = dcfg['start_x']
+    start_y = dcfg['start_y']
+    pixel_x = dcfg['pixel_x']
+    pixel_y = dcfg['pixel_y']
+    border = dcfg['border']
+
+    posy = start_y
+    for i in range(8):
+        posx = start_x + i * (pixel_x + border)
+        display.fill_rect(posx, posy, pixel_x, pixel_y, COLOR.LTGRAY)
+        display.show()
+        time.sleep(0.5)
+
+    posx = start_x
+    for i in range(4):
+        posy = start_y + i * (pixel_y + border)
+        display.fill_rect(posx, posy, pixel_x, pixel_y, COLOR.LTGRAY)
+        display.show()
+        time.sleep(0.5)
+
+    time.sleep(2)
+    display.clear()
+
+
+if __name__ == "__main__":
+    import time
+    import genlib as gl
+
+    print()
+
+    cfg = gl.get_board_config()
+    cfg |= gl.get_config('hw.cfg')
+    cfg |= gl.get_config('display.cfg')
+    display = DAL(cfg)
+
+    test1(display)
+    test2(display)

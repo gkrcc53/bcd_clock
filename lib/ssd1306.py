@@ -95,7 +95,7 @@ class SSD1306(framebuf.FrameBuffer):
     def invert(self, invert):
         self.write_cmd(SET_NORM_INV | (invert & 1))
 
-    def text_scaled(self, text, x, y, scale, character_width=8, character_height=8):
+    def text_scaled(self, text, x, y, color=1, scale=1, character_width=8, character_height=8):
         # temporary buffer for the text
         width = character_width * len(text)
         height = character_height
@@ -110,7 +110,7 @@ class SSD1306(framebuf.FrameBuffer):
             for j in range(height):
                 pixel = temp_fb.pixel(i, j)
                 if pixel:  # If the pixel is set, draw a larger rectangle
-                    self.fill_rect(x + i * scale, y + j * scale, scale, scale, 1)
+                    self.fill_rect(x + i * scale, y + j * scale, scale, scale, color)
 
     def clear(self, show=True):
         self.fill(0)

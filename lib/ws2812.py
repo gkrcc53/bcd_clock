@@ -6,7 +6,7 @@
 #   Assume 1st pixel is upper left, linear position snakes in 2D
 # GKR 05.01.25
 #   Created class structure
-#   Added pixel orientation support
+#   Added pixel order support
 
 import array
 import time
@@ -32,7 +32,7 @@ def ws2812():
     wrap()
 # ruff: enable [F821]
 
-# Technically, there are (at least) 8 orientations
+# Technically, there are (at least) 8 pixel orders
 # Starting pixel on one of four corners (first 2 bits)
 #   00 - upper left
 #   01 - upper right
@@ -43,11 +43,11 @@ def ws2812():
 #   1 - alternating (first pixel on alternating sides)
 #
 # Practically, I have only worked with (and implemented) the following;
-ORIENTATION_UPPER_LEFT_NORM = 0
-ORIENTATION_UPPER_RIGHT_ALT = 5
+ORDER_UPPER_LEFT_NORM = 0
+ORDER_UPPER_RIGHT_ALT = 5
 
 # Convert a led array position to a linear 2D coordinate position
-# for upper right alternating orientation.
+# for upper right alternating order.
 # array[0] is at upper right corner of the led array
 # array[cols] is at the left side of the second row
 def _ura2xy(pos, cols, rows):
@@ -59,7 +59,7 @@ def _ura2xy(pos, cols, rows):
         return row * cols + cols - 1 - pos
 
 # Convert a led array position to a linear 2D coordinate position
-# for upper left normal orientation.
+# for upper left normal order.
 # array[0] is at upper left corner of the led array
 # array[cols] is at the left side of the second row.
 # This is the default 2D coordinate system
@@ -67,18 +67,27 @@ def _uln2xy(pos, cols, rows):
     return pos
 
 class WS2812():
-    def __init__(self, din, cols, rows, orientation):
+    def __init__(self, din, cols, rows, order, show_delay=10):
         self._debug = False
         self.din = din
         self.cols = cols
         self.rows = rows
-        self._lin2xy = _ura2xy if orientation == ORIENTATION_UPPER_RIGHT_ALT else _uln2xy
+        self._show_delay = show_delay
+        self._lin2xy = _ura2xy if order == ORDER_UPPER_RIGHT_ALT else _uln2xy
         self._pixel_cnt = cols * rows
         self.sm = rp2.StateMachine(0, ws2812, freq=8_000_000, sideset_base=Pin(din))
         self.sm.active(1)
         self.buffer = array.array("I", [0 for _ in range(self._pixel_cnt)])
         self.dimmer = array.array("I", [0 for _ in range(self._pixel_cnt)])
         self._brightness = 0.1
+
+    @property
+    def show_delay(self):
+        return self._show_delay
+    
+    @show_delay.setter
+    def show_delay(self, delay):
+        self._show_delay = delay
 
     @property
     def pixel_cnt(self):
@@ -91,7 +100,7 @@ class WS2812():
     @property
     def debug(self):
         return self._debug
-    
+
     @debug.setter
     def debug(self, val):
         self._debug = val
@@ -99,7 +108,7 @@ class WS2812():
     @property
     def brightness(self):
         return self._brightness
-    
+
     @brightness.setter
     def brightness(self, val):
         if val < 0:
@@ -116,12 +125,13 @@ class WS2812():
             b = int((c & 0xFF) * factor)
             self.dimmer[i] = (g<<16) + (r<<8) + b
         self.sm.put(self.dimmer, 8)
-        time.sleep_ms(10)
+        if self._show_delay > 0:
+            time.sleep_ms(self._show_delay)
 
     # Set the color of a pixel at given led array position
     def pixel1d(self, i, color):
         self.buffer[i] = (color[1]<<16) + (color[0]<<8) + color[2]
-        
+
     # Set the color of a pixel at given 2D array position
     def pixel2d(self, x, y, color):
         pos = self._lin2xy(x + y * self.cols, self.cols, self.rows)
@@ -149,7 +159,7 @@ class WS2812():
             self.pixel2d(x+s-1, i, color)
         if show:
             self.show()
-    
+
     # Draw a filled rectangle with the given color
     def fill_rect(self, x, y, lx, ly, color, show=True):
         px = x
@@ -181,7 +191,7 @@ class WS2812():
         dy = -abs(y1 - y0)
         sy = 1 if y0 < y1 else -1
         error = dx + dy
-        
+
         while True:
             self.pixel2d(x0, y0, color)
             e2 = 2 * error
@@ -198,15 +208,16 @@ class WS2812():
         if show:
             self.show()
 
+
 # test code utilities
 def color_chase(panel, color):
     for i in range(panel.pixel_cnt):
         panel.pixel1d(i, color)
         panel.show()
- 
+
 def wheel(index):
     # Input a value 0 to 255 to get a color value.
-    # The colours are a transition r - g - b - back to r.
+    # The colors are a transition r - g - b - back to r.
     if index < 0 or index > 255:
         return (0, 0, 0)
     if index < 85:
@@ -216,86 +227,109 @@ def wheel(index):
         return (0, 255 - index * 3, index * 3)
     index -= 170
     return (index * 3, 0, 255 - index * 3)
-  
+
 def rainbow_cycle(panel):
     for j in range(255):
         for i in range(panel.pixel_cnt):
             rc_index = (i * 256 // panel.pixel_cnt) + j
-            panel.pixel1d(i, wheel(rc_index & 255))
+            panel.pixel1d(i, wheel(rc_index & 0xFF))
         panel.show()
-    
+
+
 if __name__ == "__main__":
     from random import randint
     import genlib as gl
-    
+    import rgbcolor as COLOR
+
     cfg = gl.get_board_config()
+    hcfg = gl.get_config('hw.cfg')
+    dcfg = gl.get_config('display.cfg')
+    cfg = cfg | hcfg | dcfg
     keys = cfg.keys()
-    
+
     din = cfg['ws2812_din']
     cols = cfg['ws2812_cols']
     rows = cfg['ws2812_rows']
-    orient = cfg['ws2812_orientation']
-    
-    # Initialize 256 LED array
+    order = cfg['ws2812_pixel_order']
+
+    # Initialize LED panel
     print('Initialization')
-    panel = WS2812(din, cols, rows, orient)
+    panel = WS2812(din, cols, rows, order)
     cnt = panel.pixel_cnt
     panel.show()
 
+    # Display all white without brightness reduction to test
+    # current drain
+    print('All white - maximum current drain')
+    save = panel.brightness
+    panel.brightness = 1.0
+    panel.fill(COLOR.WHITE)
+    panel.show()
+    panel.brightness = save
+    time.sleep(3)
+    panel.clear()
+
+    # Display all white with brightness reduction
+    print('All white - default brightness')
+    panel.fill(COLOR.WHITE)
+    panel.show()
+    time.sleep(3)
+    panel.clear()
+
     # Set first pixels to test color order and coordinate transformation
-    print('Color test [0]=red, [1]=green, [2]=blue, [0,1]=yellow')
-    panel.pixel2d(0, 0, (0x20,0,0))
-    panel.pixel2d(1, 0, (0x0,0x20,0))
-    panel.pixel2d(2, 0, (0x0,0,0x20))
-    panel.pixel2d(0, 1, (0x20, 0x20, 0))
+    print('Color test [0]=red, [1]=green, [2]=blue, [max,max]=yellow')
+    panel.pixel2d(0, 0, COLOR.RED)
+    panel.pixel2d(1, 0, COLOR.GREEN)
+    panel.pixel2d(2, 0, COLOR.BLUE)
+    panel.pixel2d(cols-1, rows-1, COLOR.YELLOW)
     panel.show()
     time.sleep(1)
 
     print('Horizontal and vertical lines')
     panel.clear()
-    for xx in range(0,panel.size[0],2):    
-        panel.vline(xx,0,panel.size[1],(128,0,0))
-        panel.vline(xx+1,0,panel.size[1],(0,0,128))
+    for xx in range(0, panel.size[0], 2):
+        panel.vline(xx, 0, panel.size[1], COLOR.LTRED)
+        panel.vline(xx+1, 0, panel.size[1], COLOR.LTBLUE)
     panel.show()
     time.sleep(1)
 
-    for yy in range(0,panel.size[1],2):    
-        panel.hline(0,yy,panel.size[0],(128,0,0))
-        panel.hline(0,yy+1,panel.size[0],(0,0,128))
+    for yy in range(0, panel.size[1], 2):
+        panel.hline(0, yy, panel.size[0], COLOR.LTRED)
+        panel.hline(0, yy+1, panel.size[0], COLOR.LTBLUE)
     panel.show()
     time.sleep(1)
 
     print('Squares')
     panel.clear()
-    panel.square(0,0,panel.size[0],(0,128,0))
+    panel.square(0, 0, panel.size[0], COLOR.LTGREEN)
     time.sleep(1)
-    panel.square(1,1,6,(128,128,0))
+    panel.square(1, 1, 6, COLOR.LTYELLOW)
     time.sleep(1)
-    panel.square(2,2,4,(128,0,0))
+    panel.square(2, 2, 4,COLOR.LTRED)
     time.sleep(1)
-    panel.square(3,3,2,(0,0,128))
+    panel.square(3, 3, 2,COLOR.LTBLUE)
     time.sleep(2)
-    panel.square(0,0,4,(128,0,0))
+    panel.square(0, 0, 4,COLOR.LTRED)
     time.sleep(1)
-    panel.square(4,4,4,(128,0,0))
+    panel.square(4, 4, 4,COLOR.LTRED)
     time.sleep(1)
-    panel.square(4,0,4,(0,0,128))
+    panel.square(4, 0, 4,COLOR.LTBLUE)
     time.sleep(1)
-    panel.square(0,4,4,(0,0,128))
+    panel.square(0, 4, 4,COLOR.LTBLUE)
     time.sleep(1)
-    panel.square(2,2,4,(0,128,0))
+    panel.square(2, 2, 4,COLOR.LTGREEN)
     time.sleep(1)
-    
+
     # Basic color values
     COLORS = (RGB.BLACK, RGB.RED, RGB.YELLOW, RGB.GREEN, RGB.CYAN, RGB.BLUE, RGB.MAGENTA, RGB.WHITE)
 
     print("Fills")
-    for color in COLORS:       
+    for color in COLORS:
         panel.fill(color, True)
         time.sleep(1)
 
     print("Chases")
-    for color in COLORS:       
+    for color in COLORS:
         color_chase(panel, color)
 
     print("Rainbow")

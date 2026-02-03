@@ -6,6 +6,8 @@ print()
 
 # Get platform configuration
 cfg = gl.get_board_config()
+cfg |= gl.get_config('hw.cfg')
+cfg |= gl.get_config('display.cfg')
 keys = cfg.keys()
 
 # Get DAL implementation
@@ -18,7 +20,7 @@ if not gl.module_available(dal_module):
     sys.exit(1)
 
 # Initialize display
-display = __import__(dal_module).DAL()
+display = __import__(dal_module).DAL(cfg)
 
 # Clear and update the display
 if display is not None:

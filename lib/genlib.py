@@ -8,6 +8,9 @@ import time
 # local debug switch
 _debug = False
 
+# hopefully non-conflicting name of board configuration
+_board_file = 'board.cfg'
+
 # seconds since 00:00:00 on 01.01.2000
 e2000_ms = 0
 
@@ -21,17 +24,24 @@ get_cipher = None
 _MODE_ECB = 0
 _BLOCK_SIZE = 16
 
+# ADC pin for temperature measurement, only initialize once
+_ADC4 = None
+
 # platform independent CPU temperature function
 get_cpu_temperature = None
 
 # UTC Epoch ranges in which DST correction should be applied
 # ranges for 2021 up until and including 2037 (DE only)
-dst_ranges =[(1616893200, 1635645600), (1648342800, 1667095200), (1679792400, 1698544800), 
-             (1711846800, 1729994400), (1743296400, 1761444000), (1774746000, 1792893600), 
-             (1806195600, 1824948000), (1837645200, 1856397600), (1869094800, 1887847200), 
-             (1901149200, 1919296800), (1932598800, 1950746400), (1964048400, 1982800800), 
-             (1995498000, 2014250400), (2026947600, 2045700000), (2058397200, 2077149600), 
-             (2090451600, 2108599200), (2121901200, 2140048800)]
+dst_ranges = [(1616893200, 1635645600), (1648342800, 1667095200),
+              (1679792400, 1698544800), (1711846800, 1729994400),
+              (1743296400, 1761444000), (1774746000, 1792893600),
+              (1806195600, 1824948000), (1837645200, 1856397600),
+              (1869094800, 1887847200), (1901149200, 1919296800),
+              (1932598800, 1950746400), (1964048400, 1982800800),
+              (1995498000, 2014250400), (2026947600, 2045700000),
+              (2058397200, 2077149600), (2090451600, 2108599200),
+              (2121901200, 2140048800)]
+
 
 # Is the indicated module available
 def module_available(name):
@@ -41,26 +51,30 @@ def module_available(name):
     except ImportError:
         return False
 
+
 # Pad a bytearray to a valid multiple of _BLOCK_SIZE bytes
-def pad_data(data : bytearray) -> bytearray:
+def pad_data(data: bytearray) -> bytearray:
     pad = _BLOCK_SIZE - len(data) % _BLOCK_SIZE
     bpad = b'\0' * pad
     return data + bpad
-    
+
+
 # Convert a string to a bytearray padded to _BLOCK_SIZE
-def pad_text(text : str) -> bytearray:
+def pad_text(text: str) -> bytearray:
     return pad_data(text.encode())
+
 
 # Return a bytearray representing the given text
 # to be used in AES-ECB encoding and decoding
-def text_data(text : str) -> bytearray:
+def text_data(text: str) -> bytearray:
     data = bytearray(1)
     data[0] = len(text)
     data = data + text.encode()
     return pad_data(data)
 
+
 # pretty print a bytearray
-def str_data(ba : bytearray):
+def str_data(ba: bytearray):
     if len(ba) == 0:
         return '[]'
     sba = '['
@@ -69,44 +83,49 @@ def str_data(ba : bytearray):
     sba = sba[:-2] + ']'
     return sba
 
+
 # Return a bytearray representing the given bytearray
 # to be used in AES-ECB encoding and decoding
 # Need length for correct decoding
-def byte_data(ba : bytearray) -> bytearray:
+def byte_data(ba: bytearray) -> bytearray:
     data = bytearray(len(ba) + 1)
     data[0] = len(ba)
     for i in range(len(ba)):
         data[i+1] = ba[i]
     return pad_data(data)
 
+
 # calculate simple checksum from bytearray
-def checksum(data : bytearray) -> int:
+def checksum(data: bytearray) -> int:
     if data is None:
         return 0
-    xor : int = 0
+    xor: int = 0
     for val in data:
         xor = xor ^ val
     return xor
 
+
 # calculate twos complement of a 16 bit unsigned integer
-def uint16_to_dec(uint16 : int) -> int:
+def uint16_to_dec(uint16: int) -> int:
     uint16 &= 0xFFFF
     if uint16 >= 0x8000:
         return -32768 + (uint16 - 0x8000)
     else:
         return uint16
 
+
 # calculate twos complement of an 8 bit unsigned integer
-def uint8_to_dec(uint8 : int) -> int:
+def uint8_to_dec(uint8: int) -> int:
     uint8 &= 0xFF
     if uint8 > 0x80:
         return -128 + (uint8 - 0x80)
     else:
         return uint8
-    
+
+
 # return a random integer in the indicated range
 # limit values may be returned
-def randint(imin : int, imax : int) -> int:
+def randint(imin: int, imax: int) -> int:
     funcs = dir(random)
     if 'randint' in funcs:
         return random.randint(imin, imax)
@@ -119,13 +138,13 @@ def randint(imin : int, imax : int) -> int:
         except Exception as e:
             raise Exception(f'Error {e} - need another randint implementation')
 
-# TAB, LF, CR are 'printable'
-_bch = {9, 10, 13}
 
 # Decode single byte to 'safe' or 'printable' ASCII
-def safe_decode(bch : bytes):
+def safe_decode(bch: bytes):
+    # TAB, LF, CR are 'printable'
+    _bch = {9, 10, 13}
     ch = ''
-    val : int = bch[0]
+    val: int = bch[0]
     if val in _bch:
         ch = chr(val)
     elif val > 31 and val < 127:
@@ -134,21 +153,26 @@ def safe_decode(bch : bytes):
         ch = '?'
     return ch
 
+
 # Determine the current python platform
 # expected result ikeys {'name', 'version', 'platform'}
 # name = 'cpython' | 'micropython'
 # version = 'maj.min.rel'
-# platform = 'linux' | 'rp2' | 'rp2w' | 'esp32' | 'esp32s3' | 'esp8266'
+# platform = 'linux' | 'rp2' | 'rp2w' |
+#            'esp32' | 'esp32s3' | 'esp8266'
 def get_platform() -> {}:
     skeys = dir(sys)
     impl = sys.implementation
     ikeys = dir(impl)
-    
-    results = {'name':'', 'version':'0.0.0', 'platform':'micropython', 'cpu_model':''}
-    
+
+    results = {'name': '',
+               'version': '0.0.0',
+               'platform': 'micropython',
+               'cpu_model': ''}
+
     if 'name' in ikeys:
         results['name'] = impl.name
-        
+
     if 'version' in ikeys:
         sver = impl.version
         version = f'{sver[0]}.{sver[1]}.{sver[2]}'
@@ -233,8 +257,9 @@ def get_platform() -> {}:
         print(f'platform is {results["platform"]}')
     return results
 
+
 # Return True if the indicated file exists
-def file_exists(filename : str) -> bool:
+def file_exists(filename: str) -> bool:
     try:
         fd = open(filename, 'r')
         fd.close()
@@ -242,35 +267,32 @@ def file_exists(filename : str) -> bool:
         return False
     return True
 
+
 # Return the byte size of the indicated file, -1 if an OSError occurs
-def file_size(filename : str) -> int:
+def file_size(filename: str) -> int:
     try:
         stats = os.stat(filename)
         return stats[6]
     except OSError:
         return -1
 
+
 # Get the name of the current board, else _UNDEFINED
-# Parse board.py file...
+# board.py file is no longer supported
 def get_board_name() -> str:
-    board_name = _UNDEFINED
-    board_file = 'board.py'
-    
-    if file_exists(board_file):
-        with open(board_file, 'r') as fd:
-            line = fd.readline()
-            
-            while line is not None and len(line) > 0:
-                fields = line[:-1].split('=')
-                if len(fields) == 2 and fields[0] == 'name':
-                    board_name = fields[1][1:-1]
-                    break
-                line = fd.readline()
+    global _board_file, _UNDEFINED
+
+    _board_name = _UNDEFINED
+    if file_exists(_board_file):
+        bcfg = get_config(_board_file)
+        if 'name' in bcfg:
+            _board_name = bcfg['name']
     elif _debug:
-        print(f'Board config file {board_file} does not exist')
+        print(f'Board config file {_board_file} does not exist')
     if _debug:
-        print(f'Board name is {board_name}')
-    return board_name
+        print(f'Board name is {_board_name}')
+    return _board_name
+
 
 # Get a unique board identifier byte string, else 6*b'0'
 def get_unique_id() -> bytes:
@@ -281,6 +303,7 @@ def get_unique_id() -> bytes:
     else:
         return b'0x0' * 6
 
+
 # Stringify the board ID
 def strUniqueID() -> str:
     id = get_unique_id()
@@ -289,8 +312,50 @@ def strUniqueID() -> str:
         sid = sid + f'{num:02x}.'
     return sid[:-1]
 
+
+# convert hex string to int
+def hex2int(str):
+    chex = '0123456789abcdef'
+    if str is None or len(str) == 0:
+        return 0
+    else:
+        val = 0
+        for i in str:
+            i = i.lower()
+            if i not in chex:
+                raise Exception('Not a hex character')
+            val = val * 16 + chex.find(i)
+        return val
+
+
+# Convert MAC string to standard mac address
+def str2mac(str):
+    vals = str.split(':')
+    if len(vals) != 6:
+        return b'0x0' * 6
+    bmac = bytearray(6)
+    for i in range(6):
+        bmac[i] = hex2int(vals[i])
+    return bmac
+
+
 # Get the network MAC address, 6*b'0' is not defined
 def get_mac_address(lan=None) -> bytes:
+    if platform == 'linux':
+        import socket
+        import psutil
+        nics = psutil.net_if_addrs()
+        iName = [i
+                 for i in nics
+                 for j in nics[i]
+                 if j.address.startswith('192.168.178.') and
+                 j.family == socket.AF_INET][0]
+        nics = psutil.net_if_addrs()
+        mac = ([j.address
+                for i in nics
+                for j in nics[i]
+                if i == iName and j.family == psutil.AF_LINK])[0]
+        return (str2mac(mac))
     if lan:
         return lan.wlan.config('mac')
     elif not module_available('lan'):
@@ -302,6 +367,13 @@ def get_mac_address(lan=None) -> bytes:
     else:
         return b'0x0' * 6
 
+
+# Get the MAC address as list
+def get_mac(lan=None):
+    mac = get_mac_address(lan)
+    return [mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]]
+
+
 # Stringify the MAC address
 def strMacAddress(lan=None, mac=None) -> str:
     if not mac:
@@ -310,6 +382,7 @@ def strMacAddress(lan=None, mac=None) -> str:
     for num in mac:
         smac = smac + f'{num:02x}.'
     return smac[:-1]
+
 
 # Return configuration information stored in the indicated file
 def get_config(file) -> {}:
@@ -323,35 +396,27 @@ def get_config(file) -> {}:
         print(f'Exception {e} in \'{file}\' ignored')
     return {}
 
-# Return the board configuration filename
-def get_board_config_file() -> str:
-    name = get_board_name()
-    if name == _UNDEFINED:
-        if _debug:
-            print('Board name not set')
-        return ''
-    return f'{name}.cfg'
 
 # Return the board configuration, {} if an error occurs
 def get_board_config() -> {}:
-    fname = get_board_config_file()
-    if fname == '':
-        if _debug:
-            print('Board name not set')
+    if not file_exists(_board_file):
         return {}
-    return get_config(fname)
+    return get_config(_board_file)
+
 
 # Return the value of an optional configuration setting
 # Return the default value if an error occurs
-def get_setting(name : str, default, cfg : {}):
+def get_setting(name: str, default, cfg: {}):
     result = default
     if name in cfg:
         result = cfg[name]
     return result
 
+
 # Return True if the platform is an ESP32
 def is_esp32() -> bool:
     return module_available('esp32')
+
 
 # Return the CPU temperature on an ESP32 platform
 def esp_cpu_temperature():
@@ -360,12 +425,13 @@ def esp_cpu_temperature():
         rawT = esp32.mcu_temperature()
     else:
         rawT = esp32.raw_temperature()
-    if board.find('esp32s2m') >= 0:
+    if board.find('esp32s2m') >= 0 or board.find('esp32s3z') >= 0:
         return rawT
     elif board.find('esp32c') < 0:
         return (rawT - 32) * 5 / 9
     else:
         return rawT - 100
+
 
 # Return the CPU temperature on a Raspberry PI or ZERO platform
 def rpi_cpu_temperature():
@@ -390,23 +456,25 @@ def rpi_cpu_temperature():
     else:
         print(f'vcgencmd output format error \'{stemp}\'')
 
+
 # Return the CPU temperature on a Raspberry PI PICO platform
-ADC4 = None
 def pico_cpu_temperature():
-    global ADC4
-    if ADC4 is None:
+    global _ADC4
+
+    if _ADC4 is None:
         from machine import ADC
         ADCPIN = 4
-        ADC4 = ADC(ADCPIN)
+        _ADC4 = ADC(ADCPIN)
 
     cnt = 5
     sum = 0
     while cnt > 0:
-        val = ADC4.read_u16()
+        val = _ADC4.read_u16()
         sum += val
         cnt -= 1
     volt = sum / 5.0 * 3.3 / 65535
     return 27.0 - (volt - 0.706) / 0.001721
+
 
 # Return the number of milliseconds since the EPOCH started or
 # some other arbitrary point in time.
@@ -420,22 +488,26 @@ def time_ms():
         st = f'{time.time_ns()}'
         return int(st[:-6])
 
+
 # Return time in milliseconds since start of EPOCH 2000
 # This value should be nearly the same on any synchronized platform.
 # Note: this can be used to simultaneously monitor time sensitive events.
 def debug_time_ms():
     return int(time_ms() - e2000_ms)
 
+
 # Return platform independent timestamp as string (wrap at ~16min)
 def debug_timestamp():
     stime = f'{debug_time_ms() % 1_000_000:06}'
     return f'{stime[:3]}.{stime[3:]}'
+
 
 # Only works if time.time() returns UTC
 # DST determination for germany
 def is_dst():
     utc = time.time()
     return any(lwr <= utc < upr for (lwr, upr) in dst_ranges)
+
 
 # Return the local time as a tuple
 # TZ and DST compensation for germany
@@ -455,30 +527,35 @@ def localtime(tz=None, dst=None):
         local_offset = (tz + dst) * 3600
         return time.localtime(time.time()+local_offset)
 
+
 # Convert date/time tuple to european string time representation
 # if dow = True, tuple contains dow in [3]
 # if short = True, return year field as 2 digits
 def strDateTime(lt, dow=False, short=False):
     year = f'{lt[0]-2000:02}' if short else f'{lt[0]}'
+    date = f'{lt[2]:02d}.{lt[1]:02d}.{year}'
     if dow:
-        return f'{lt[2]:02d}.{lt[1]:02d}.{year} {lt[4]:02d}:{lt[5]:02d}:{lt[6]:02d}'
+        return f'{date} {lt[4]:02d}:{lt[5]:02d}:{lt[6]:02d}'
     else:
-        return f'{lt[2]:02d}.{lt[1]:02d}.{year} {lt[3]:02d}:{lt[4]:02d}:{lt[5]:02d}'
+        return f'{date} {lt[3]:02d}:{lt[4]:02d}:{lt[5]:02d}'
+
 
 # Convert localtime tuple to european string date representation
 def strDate(short=False):
     tm = localtime()
     year = f'{tm[0]-2000:02}' if short else f'{tm[0]}'
-    return(f'{tm[2]:02}.{tm[1]:02}.{year}')
-    
+    return (f'{tm[2]:02}.{tm[1]:02}.{year}')
+
+
 # Convert localtime tuple to european string time representation
 def strTime():
     tm = localtime()
-    return(f'{tm[3]:02}:{tm[4]:02}:{tm[5]:02}')
+    return (f'{tm[3]:02}:{tm[4]:02}:{tm[5]:02}')
+
 
 # Return a string representation of cycles per second in Hz, KHz, Mhz, GHz
 def niceCycles(cycles, space=True):
-    assert(cycles >= 0)
+    assert (cycles >= 0)
     sep = ''
     if space:
         sep = ' '
@@ -493,9 +570,10 @@ def niceCycles(cycles, space=True):
     ghz = mhz / 1000
     return f'{ghz:0.2f}{sep}GHz'
 
+
 # Return a string representation of byte size in Kb, Mb, Gb
 def niceSize(count, space=True):
-    assert(count >= 0)
+    assert (count >= 0)
     sep = ''
     if space:
         sep = ' '
@@ -509,6 +587,7 @@ def niceSize(count, space=True):
         return f'{mb:0.2f}{sep}Mb'
     gb = mb / 1000
     return f'{gb:0.2f}{sep}Gb'
+
 
 # Return a string representation of seconds as 'Dd Hh Mm Ss'
 # If not space, return 'DdHhMmSs'
@@ -544,11 +623,12 @@ def niceSeconds(secs, space=True):
         shour = ''
     return f'{sign}{iday}d{shour}{smin}{ssec}'
 
+
 # Return a 'nice' number (factor of 1, 2, 5, 10) larger
 # larger or smaller in absolute value than the input value.
-def niceNumber(num : float, round=False) -> float:
+def niceNumber(num: float, round=False) -> float:
     from math import log10, pow, floor
-    
+
     if num == 0:
         return 0
 
@@ -576,9 +656,10 @@ def niceNumber(num : float, round=False) -> float:
             nice = 5.0
         else:
             nice = 10.0
-    
+
     result = nice * pow(10.0, float(expt))
     return result if not neg else -result
+
 
 # platform independent tick addition
 def local_ticks_add(val1, val2):
@@ -587,6 +668,7 @@ def local_ticks_add(val1, val2):
     else:
         return time.ticks_add(val1, val2)
 
+
 # platform independent tick subtraction
 def local_ticks_diff(val1, val2):
     if platform == 'linux':
@@ -594,12 +676,34 @@ def local_ticks_diff(val1, val2):
     else:
         return time.ticks_diff(val1, val2)
 
+
 # platform independent millisecond timer
 def local_ticks_ms():
     if platform == 'linux':
         return int((time.time_ns()+500000)/1000000)
     else:
         return time.ticks_ms()
+
+
+# platform independent millisecond timer decorator
+def timer(f):
+    def wrapper(*args, **kw):
+        tstart = local_ticks_ms()
+        result = f(*args, **kw)
+        tdelta = int(local_ticks_diff(local_ticks_ms(), tstart))
+        print(f'func: {f.__name__}({args},{kw}) took: {tdelta} ms')
+        return result
+    return wrapper
+
+
+# platform independent function trace decorator
+def trace(f):
+    def wrapper(*args, **kw):
+        print(f'func: {f.__name__}({args},{kw})')
+        result = f(*args, **kw)
+        return result
+    return wrapper
+
 
 # platform independent callback handler
 def print_exception(e):
@@ -609,6 +713,7 @@ def print_exception(e):
     else:
         sys.print_exception(e)
 
+
 # Initialize platform independent cryptography support
 if module_available('cryptolib'):
     import cryptolib
@@ -616,7 +721,7 @@ if module_available('cryptolib'):
     get_cipher = cryptolib.aes
 elif _debug:
     print('cryptolib not available')
-    
+
 if module_available('Cryptodome.Cipher'):
     from Cryptodome.Cipher import AES
     _MODE_ECB = AES.MODE_ECB
@@ -636,7 +741,7 @@ if board.find('esp32') == 0:
 elif board.find('rpi') == 0:
     get_cpu_temperature = rpi_cpu_temperature
 elif board.find('pico') == 0:
-    get_cpu_temperature =  pico_cpu_temperature
+    get_cpu_temperature = pico_cpu_temperature
 
 if _debug and get_cpu_temperature is None:
     print('CPU temperature support is not available')

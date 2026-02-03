@@ -23,6 +23,7 @@ import uselect
 import ustruct
 import genlib as gl
 
+
 class LAN:
     def __init__(self):
         # some network implementation do not support STAT_CONNECT_FAIL
@@ -42,6 +43,8 @@ class LAN:
             for key in sorted(self.keys):
                 print(f'{key:<20}{self.cfg[key]}')
             print()
+        # do not modify transmit power on connection
+        self._txpower = -1
 
     @property
     def debug(self):
@@ -51,12 +54,20 @@ class LAN:
     def debug(self, val):
         self._debug = val
 
+    @property
+    def txpower(self):
+        return self._txpower
+
+    @txpower.setter
+    def txpower(self, val):
+        self._txpower = val
+
     def config(self):
         return self.cfg
 
     def wlan(self):
         return self.wlan
-    
+
     def get_ip(self):
         if not self.wlan:
             return '0.0.0.0'
@@ -119,7 +130,7 @@ class LAN:
             network.hostname(hostname)
             if self._debug:
                 print(f'hostname set to {network.hostname()}')
-        
+
         # Try to connect
         self.wlan = network.WLAN(network.STA_IF)
         self.wlan.active(True)
@@ -134,13 +145,22 @@ class LAN:
                 while cnt2 > 0:
                     status = self.wlan.status()
                     if status == network.STAT_GOT_IP:
+                        if self._txpower > 0:
+                            tmp = self.wlan.config('txpower')
+                            if tmp != self._txpower:
+                                self.wlan.config(txpower=self._txpower)
+                        txp = self.wlan.config('txpower')
+                        if self._debug:
+                            print(f'Maximum transmit power is {txp}')
                         self.connected = True
                         if self._debug:
-                            print(f'Connected to LAN - ip is {self.wlan.ifconfig()[0]}')
+                            sip = f'{self.wlan.ifconfig()[0]}'
+                            print(f'Connected to LAN - ip is {sip}')
                         return True
                     time.sleep(1)
                     if self._debug:
-                        print(f'wlan status is {self._strNetStatus(status)}')
+                        stat = self._strNetStatus(status)
+                        print(f'wlan status is {stat}')
                     cnt2 -= 1
                 if self.connected:
                     break
@@ -169,7 +189,7 @@ class LAN:
 
         if not host or len(host) == 0:
             host = 'pool.ntp.org'
-        
+
         is_open = False
         msg = None
         msgOK = False
@@ -187,10 +207,10 @@ class LAN:
         finally:
             if is_open:
                 s.close()
-            
+
         if msgOK:
             val = struct.unpack("!I", msg[40:44])[0]
-            
+
             EPOCH_YEAR = time.gmtime(0)[0]
             if EPOCH_YEAR == 2000:
                 # (date(2000, 1, 1) - date(1900, 1, 1)).days * 24*60*60
@@ -209,10 +229,10 @@ class LAN:
     def ntp_time(self, host=None, timeout=10):
         if not gl.module_available('ntptime'):
             return 0
-        
+
         if not self.is_connected() and not self.connect():
             return False
-    
+
         import ntptime
         ntptime.host = self.ntp_host if host is None else host
         ntptime.timeout = timeout
@@ -237,18 +257,20 @@ class LAN:
         RTC().datetime((lt[0], lt[1], lt[2], lt[6], lt[3], lt[4], lt[5], 0))
         lt = time.gmtime()
         if self._debug:
-            print(f'UTC time is {lt[3]:02}:{lt[4]:02}:{lt[5]:02} on {lt[2]:02}.{lt[1]:02}.{lt[0]}')
+            sdate = f'{lt[3]:02}:{lt[4]:02}:{lt[5]:02}'
+            stime = f'{lt[2]:02}.{lt[1]:02}.{lt[0]}'
+            print(f'UTC time is {sdate} on {stime}')
         return True
 
     def url_encode(self, string):
-       encoded_string = ""
-       for character in string:
-           if character.isalpha() or character.isdigit():
-               encoded_string += character
-           else:
-               encoded_string += f"%{ord(character):x}"
-       return encoded_string
-        
+        encoded_string = ""
+        for character in string:
+            if character.isalpha() or character.isdigit():
+                encoded_string += character
+            else:
+                encoded_string += f"%{ord(character):x}"
+        return encoded_string
+
     def url_decode(self, url):
         counter = 0
         # A check to break out of the loop after 100 iterations
@@ -257,11 +279,11 @@ class LAN:
             hex_code = url[index+1:index+3]
             char = chr(int(hex_code, 16))
             url = url[:index] + char + url[index+3:]
-            counter += 1  
+            counter += 1
         return url
 
     def _checksum(self, data):
-        if len(data) & 0x1: # Odd number of bytes
+        if len(data) & 0x1:
             data += b'\0'
         cs = 0
         for pos in range(0, len(data), 2):
@@ -273,7 +295,7 @@ class LAN:
         cs = ~cs & 0xffff
         return cs
 
-    def ping(self, host, count=5, timeout=5000, interval=200, quiet=False, size=64):
+    def ping(self, host, count=5, timeout=5000, interval=200, quiet=False, size=64):  # noqa: E501
         try:
             # prepare packet
             assert size >= 16, "pkt size too small"
@@ -285,9 +307,9 @@ class LAN:
                 "id": uctypes.UINT16 | 4,
                 "seq": uctypes.INT16 | 6,
                 "timestamp": uctypes.UINT64 | 8,
-            } # packet header descriptor
-            h = uctypes.struct(uctypes.addressof(pkt), pkt_desc, uctypes.BIG_ENDIAN)
-            h.type = 8 # ICMP_ECHO_REQUEST
+            }
+            h = uctypes.struct(uctypes.addressof(pkt), pkt_desc, uctypes.BIG_ENDIAN)  # noqa: E501
+            h.type = 8
             h.code = 0
             h.checksum = 0
             h.id = urandom.getrandbits(16)
@@ -297,19 +319,19 @@ class LAN:
             sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, 1)
             sock.setblocking(0)
             sock.settimeout(timeout/1000)
-            addr = socket.getaddrinfo(host, 1)[0][-1][0] # ip address
+            addr = socket.getaddrinfo(host, 1)[0][-1][0]
             sock.connect((addr, 1))
             if not quiet:
                 print("PING %s (%s): %u data bytes" % (host, addr, len(pkt)))
-            
-            seqs = list(range(1, count+1)) # [1,2,...,count]
+
+            seqs = list(range(1, count+1))
             c = 1
             t = 0
             n_trans = 0
             n_recv = 0
             finish = False
             while t < timeout:
-                if t==interval and c<=count:
+                if t == interval and c <= count:
                     # send packet
                     h.checksum = 0
                     h.seq = c
@@ -317,7 +339,7 @@ class LAN:
                     h.checksum = self._checksum(pkt)
                     if sock.send(pkt) == size:
                         n_trans += 1
-                        t = 0 # reset timeout
+                        t = 0
                     else:
                         seqs.remove(c)
                     c += 1
@@ -328,15 +350,15 @@ class LAN:
                     if socks:
                         resp = socks[0].recv(4096)
                         resp_mv = memoryview(resp)
-                        h2 = uctypes.struct(uctypes.addressof(resp_mv[20:]), pkt_desc, uctypes.BIG_ENDIAN)
+                        h2 = uctypes.struct(uctypes.addressof(resp_mv[20:]), pkt_desc, uctypes.BIG_ENDIAN)  # noqa: E501
                         # TODO: validate checksum (optional)
                         seq = h2.seq
-                        if h2.type==0 and h2.id==h.id and (seq in seqs): # 0: ICMP_ECHO_REPLY
+                        if h2.type == 0 and h2.id == h.id and (seq in seqs):
                             t_elasped = (time.ticks_us()-h2.timestamp) / 1000
-                            ttl = ustruct.unpack('!B', resp_mv[8:9])[0] # time-to-live
+                            ttl = ustruct.unpack('!B', resp_mv[8:9])[0]
                             n_recv += 1
                             if not quiet:
-                                print("%u bytes from %s: icmp_seq=%u, ttl=%u, time=%0.2f ms" % (len(resp), addr, seq, ttl, t_elasped))
+                                print("%u bytes from %s: icmp_seq=%u, ttl=%u, time=%0.2f ms" % (len(resp), addr, seq, ttl, t_elasped))  # noqa: E501
                             seqs.remove(seq)
                             if len(seqs) == 0:
                                 finish = True
@@ -353,7 +375,7 @@ class LAN:
             # close
             sock.close()
             if not quiet:
-                print("%u packets transmitted, %u packets received" % (n_trans, n_recv))
+                print("%u packets transmitted, %u packets received" % (n_trans, n_recv))  # noqa: E501
             return (n_trans, n_recv)
         except Exception as e:
             sys.print_exception(f'Exception {e} while pinging {host} ignored')

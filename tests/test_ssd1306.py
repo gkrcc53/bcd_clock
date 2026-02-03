@@ -1,7 +1,16 @@
 # Simple SSD1306 display test
+#
+# This test uses the ssd1306 driver directly
+
+# Make sure we're on the right platform
+import sys
+import genlib as gl
+if gl.platform == 'linux':
+    print('This program/module was not written for this platform')
+    sys.exit(1)
+
 import time
 from machine import Pin, I2C, SoftI2C
-import lib.genlib as gl
 from ssd1306 import SSD1306_I2C
 import oledcolor as COLOR
 
@@ -13,7 +22,7 @@ cfg |= dcfg
 keys = cfg.keys()
 
 # Screen errors seen at ssd1306 freq 300000
-assert('i2c_sda' in cfg.keys())
+assert ('i2c_sda' in cfg.keys())
 sda = Pin(cfg['i2c_sda'], Pin.OUT, Pin.PULL_UP)
 scl = Pin(cfg['i2c_scl'], Pin.OUT, Pin.PULL_UP)
 freq = 400_000
@@ -36,9 +45,10 @@ oled.clear()
 
 size = (128, 64)
 
+
 def test1():
-    ul=(0,0)
-    lr=(size[0]-1, size[1]-1)
+    ul = (0, 0)
+    lr = (size[0]-1, size[1]-1)
     oled.line(ul[0], ul[1], lr[0], ul[1], COLOR.WHITE)
     oled.line(lr[0], ul[1], lr[0], lr[1], COLOR.WHITE)
     oled.line(lr[0], lr[1], ul[0], lr[1], COLOR.WHITE)
@@ -46,21 +56,22 @@ def test1():
 
     msg = 'Hello SSD1306'
     oled.text(msg, 10, 3, COLOR.WHITE)
-    oled.fill_rect(20, 12, 12, 12, COLOR.WHITE)
+    oled.fill_rect(20, 20, 12, 12, COLOR.WHITE)
     oled.show()
     time.sleep(2)
 
     oled.clear()
 
+
 def test2():
     oled.clear()
-    
+
     start_x = 8
     start_y = 8
     pixel_x = 4
     pixel_y = 4
     border = 2
-    
+
     posy = start_y
     for i in range(8):
         posx = start_x + i * (pixel_x + border)
@@ -69,7 +80,7 @@ def test2():
         time.sleep(0.5)
 
     posx = start_x
-    for i in range(8):
+    for i in range(4):
         posy = start_y + i * (pixel_y + border)
         oled.fill_rect(posx, posy, pixel_x, pixel_y, 1)
         oled.show()
@@ -77,6 +88,7 @@ def test2():
 
     time.sleep(2)
     oled.clear()
+
 
 if __name__ == "__main__":
     test1()

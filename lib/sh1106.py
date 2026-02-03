@@ -46,7 +46,7 @@
 # display.sleep(False)
 # display.fill(0)
 # display.text('Testing 1', 0, 0, 1)
-# display.show()
+# display.local_show()
 #
 # --------------- I2C ------------------
 #
@@ -69,7 +69,7 @@
 # display.sleep(False)
 # display.fill(0)
 # display.text('Testing 1', 0, 0, 1)
-# display.show()
+# display.local_show()
 
 # GKR 17.10.25
 #   Added clear() to clear screen
@@ -125,7 +125,7 @@ class SH1106(framebuf.FrameBuffer):
         self.init_display()
 
     # abstractmethod
-    def write_cmd(self, *args, **kwargs): 
+    def write_cmd(self, *args, **kwargs):
         raise NotImplementedError
 
     # abstractmethod
@@ -136,16 +136,16 @@ class SH1106(framebuf.FrameBuffer):
         self.reset()
         self.fill(0)
         self.poweron()
-        self.show()
+        self.local_show()
         # rotate90 requires a call to flip() for setting up.
         self.flip(self.flip_en)
 
     @property
     def size(self):
         if self.rotate90:
-            return(self.height, self.width)
+            return (self.height, self.width)
         else:
-            return(self.width, self.height)
+            return (self.width, self.height)
 
     def poweroff(self):
         self.write_cmd(_SET_DISP | 0x00)
@@ -160,7 +160,7 @@ class SH1106(framebuf.FrameBuffer):
     def clear(self, show=True):
         self.fill(0)
         if show:
-            self.show(True)
+            self.local_show(True)
 
     def flip(self, flag=None, update=True):
         if flag is None:
@@ -171,7 +171,7 @@ class SH1106(framebuf.FrameBuffer):
         self.write_cmd(_SET_SCAN_DIR | (0x08 if mir_h else 0x00))
         self.flip_en = flag
         if update:
-            self.show(True) # full update
+            self.local_show(True) # full update
 
     def sleep(self, value):
         self.write_cmd(_SET_DISP | (not value))
@@ -183,7 +183,7 @@ class SH1106(framebuf.FrameBuffer):
     def invert(self, invert):
         self.write_cmd(_SET_NORM_INV | (invert & 1))
 
-    def show(self, full_update=False):
+    def local_show(self, full_update=False):
         # self.* lookups in loops take significant time (~4fps).
         (w, p, db, rb) = (self.width, self.pages,
                           self.displaybuf, self.renderbuf)
@@ -215,7 +215,12 @@ class SH1106(framebuf.FrameBuffer):
         super().text(text, x, y, color)
         self.register_updates(y, y+7)
 
-    def text_scaled(self, text, x, y, scale, character_width=8, character_height=8):
+    def text_scaled(self, text, x, y, color=1, scale=1, character_width=8, character_height=8):
+        # handle trivial case
+        if scale == 1:
+            super().text(text, x, y, color)
+            return
+
         # temporary buffer for the text
         width = character_width * len(text)
         height = character_height
@@ -223,14 +228,14 @@ class SH1106(framebuf.FrameBuffer):
         temp_fb = framebuf.FrameBuffer(temp_buf, width, height, framebuf.MONO_VLSB)
 
         # write text to the temporary framebuffer
-        temp_fb.text(text, 0, 0, 1)
+        temp_fb.text(text, 0, 0, color)
 
         # scale and write to the display
         for i in range(width):
             for j in range(height):
                 pixel = temp_fb.pixel(i, j)
                 if pixel:  # If the pixel is set, draw a larger rectangle
-                    self.fill_rect(x + i * scale, y + j * scale, scale, scale, 1)
+                    self.fill_rect(x + i * scale, y + j * scale, scale, scale, color)
 
     def line(self, x0, y0, x1, y1, color):
         super().line(x0, y0, x1, y1, color)
