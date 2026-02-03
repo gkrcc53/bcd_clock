@@ -292,6 +292,8 @@ def update_hours(val):
     global last_hour, hcolor, bcolor
     if val == last_hour:
         return
+
+    val = min(23, max(0, val))
     last_hour = val
 
     # Clear hour pixels
@@ -328,6 +330,8 @@ def update_minutes(val):
     global last_min, mcolor, bcolor
     if last_min == val:
         return
+
+    val = min(59, max(0, val))
     last_min = val
 
     # Clear minute pixels
@@ -373,6 +377,8 @@ def update_seconds(val):
     global last_sec, scolor, bcolor
     if last_sec == val:
         return
+
+    val = min(59, max(0, val))
     last_sec = val
 
     # Clear second pixels

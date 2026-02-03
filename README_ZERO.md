@@ -1,9 +1,9 @@
 Raspberry Pi Zero 2W Installation
 =================================
 
-The code files should theoretically work on other Raspberry Pi based
-microcomputers, perhaps with small modifications, but I have not tested
-them on these systems.
+The Pi Zero code files should theoretically work on other Raspberry Pi based
+microcomputers (perhaps with small modifications) but I have not done testing
+on other hardware.
 
 <b>Low level device activation</b><p>
 
@@ -26,7 +26,7 @@ Your displays may not require any baudrate modification...<p>
 <b>SPI devices</b><br>
 - Run raspi-config<br>
 - Go to Interface Options/SPI<br>
-- Activate the ARM I2C interface<p>
+- Activate the SPI interface<p>
 
 <b>Low level driver installation</b><p>
 
@@ -56,8 +56,9 @@ It is likely that some of the above modules are unnecessary...<p>
 
 My ST7789 display requires "inverted" colors, which the default driver did
 not support as an option. I modified the source code slightly to allow this
-option, the modified file is in the zero subdirectory. On my system, the file
-is stored at;<p>
+option, the modified file is in the zero subdirectory of the repository.<br>
+On my system, the file
+is stored under;<p>
 ~/.local/lib/python3.13/site-packages/adafruit_rgb_display
 
 Your display(s) may not require this modified system driver.<p>
