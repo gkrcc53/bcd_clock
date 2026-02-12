@@ -39,7 +39,7 @@ din = cfg['neopixel_din']
 cols = cfg['neopixel_cols']
 rows = cfg['neopixel_rows']
 order = cfg['neopixel_pixel_order']
-delay = 10
+delay = 0
 if 'neopixel_show_delay' in cfg:
     delay = cfg['neopixel_show_delay']
 cnt = cols * rows

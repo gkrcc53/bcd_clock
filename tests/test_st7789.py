@@ -11,19 +11,28 @@ from machine import SPI, Pin
 import time
 from st7789 import ST7789
 import tftcolor as COLOR
-import vga2_16x32 as font
+
 
 cfg = gl.get_board_config()
 hcfg = gl.get_config('hw.cfg')
 cfg |= hcfg
 dcfg = gl.get_config('display.cfg')
 cfg |= dcfg
+d2cfg = gl.get_config('dal_st7789.cfg')
+cfg |= d2cfg
 keys = cfg.keys()
 debug = 'debug' in keys and cfg['debug']
 if debug:
     for key in sorted(keys):
         print(f'{key:<25}{cfg[key]}')
     print()
+
+# Load font, default if not redefined
+ffile = 'vga1_16x32'
+if 'text_font' in keys:
+    ffile = cfg['text_font']
+font = __import__(ffile)
+print(f'Text font is {ffile}')
 
 port = cfg['spi_port']
 psck = cfg['spi_scl']

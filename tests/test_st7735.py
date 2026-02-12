@@ -27,7 +27,7 @@ if debug:
         print(f'{key:<25}{cfg[key]}')
     print()
 
-offset = [2, 1]
+offset = [0, 0]
 if 'st7735_offset' in keys:
     offset = cfg['st7735_offset']
 port = cfg['spi_port']
@@ -43,6 +43,10 @@ if 'spi_baud' in keys:
 # time program
 tstart = gl.time_ms()
 
+rotate = 0
+if 'st7735_rotate' in keys:
+    rotate = cfg['st7735_rotate']
+
 # Normal initialization w/o rotation
 spi = SPI(port, baudrate=baud, sck=psck, mosi=psda, miso=pdc)
 tft = ST7735(spi, pdc, pres, pcs)
@@ -51,6 +55,7 @@ tft.initr()
 if offset:
     tft._offset[0] = offset[0]
     tft._offset[1] = offset[1]
+tft.rotation(rotate)
 
 # try something simple
 tft.clear()

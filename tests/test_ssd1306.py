@@ -80,7 +80,7 @@ def test2():
         time.sleep(0.5)
 
     posx = start_x
-    for i in range(4):
+    for i in range(1, 4):
         posy = start_y + i * (pixel_y + border)
         oled.fill_rect(posx, posy, pixel_x, pixel_y, 1)
         oled.show()

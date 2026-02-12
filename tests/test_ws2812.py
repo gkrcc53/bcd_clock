@@ -36,8 +36,9 @@ din = cfg['ws2812_din']
 cols = cfg['ws2812_cols']
 rows = cfg['ws2812_rows']
 order = cfg['ws2812_pixel_order']
+delay = cfg['ws2812_show_delay']
 cnt = cols * rows
-neo = WS2812(din, cols, rows, order)
+neo = WS2812(din, cols, rows, order, show_delay=delay)
 
 
 # Fill with white to check current drain
@@ -51,11 +52,13 @@ def test0():
         save = neo.brightness
         neo.brightness = 1.0
         neo.fill((0xff, 0xff, 0xff))
+        neo.show()
         time.sleep(5)
         neo.brightness = save
 
     print('All white - default brightness')
     neo.fill((0xff, 0xff, 0xff))
+    neo.show()
     time.sleep(5)
 
 
