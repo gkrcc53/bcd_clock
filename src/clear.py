@@ -24,5 +24,4 @@ display = __import__(dal_module).DAL(cfg)
 
 # Clear and update the display
 if display is not None:
-    display.fill(display.BLACK)
-    display.show()
+    display.fill(display.BLACK, show=True)
