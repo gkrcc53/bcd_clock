@@ -1,17 +1,20 @@
 # bcd clock application using display abstraction layer
 #
 # Configuration options
-#   debug       - output debug information
-#   verbose     - if debug, output copious information
-#   display_rtc - if true, output RTC time directly,
-#                 else RTC=UTC use genlib for DST compensation
-#   show_digits - call show() after each digit, False if not defined
-#   bkg_color   - color of background pixels, else "black"
-#   frame_color - color of frame pixels, else "ltgray"
-#   colon_color - color of blinking colons, else "vltgray"
-#   hour_color  - color of hour digits, else "red"
-#   min_color   - color of minute digits, else "green"
-#   sec_color   - color of second digits, else "blue"
+#   debug         - output debug information
+#   verbose       - if debug, output copious information
+#   lan_update    - use LAN to update RTC, default True
+#   display_rtc   - if true, output RTC time directly,
+#                   else RTC=UTC use genlib for DST compensation
+#   show_digits   - call show() after each digit, False if not defined
+#   bkg_color     - color of background pixels, else "black"
+#   frame_color   - color of frame pixels, else "ltgray"
+#   colon_color   - color of blinking colons, else "vltgray"
+#   hour_color    - color of hour/day digits, else "red"
+#   min_color     - color of minute/month digits, else "green"
+#   sec_color     - color of second/year digits, else "blue"
+#   time_interval - seconds to display time
+#   date_interval - seconds to display date
 #
 # Notes
 #   color options are;
@@ -19,7 +22,6 @@
 #     "cyan", "ltcyan", "magenta", ltmagenta", "yellow", "ltyellow",
 #     "black", "white", "gray", "ltgray", "vltgray", vvltgray"
 
-import sys
 import time
 import gc
 import genlib as gl
@@ -33,8 +35,7 @@ cfg = gl.get_board_config()
 # Merge application configuration
 appcfg = 'bcd_clock.cfg'
 if not gl.file_exists(appcfg):
-    print(f'Application configuration file {appcfg} not found')
-    sys.exit(1)
+    raise Exception(f'Application configuration file {appcfg} not found')
 pcfg = gl.get_config(appcfg)
 cfg |= pcfg
 
@@ -44,38 +45,19 @@ hal = HAL()
 # Merge hardware configuration
 hwcfg = 'hw.cfg'
 if not gl.file_exists(hwcfg):
-    print(f'Hardware configuration file {hwcfg} not found')
-    sys.exit(1)
+    raise Exception(f'Hardware configuration file {hwcfg} not found')
 hcfg = gl.get_config(hwcfg)
 cfg |= hcfg
 
 # Merge display configuration
 dscfg = 'display.cfg'
 if not gl.file_exists(dscfg):
-    print(f'Display configuration file {dscfg} not found')
-    sys.exit(1)
+    raise Exception(f'Display configuration file {dscfg} not found')
 dcfg = gl.get_config(dscfg)
 cfg |= dcfg
 
 # Get list of merged configuration keys
 keys = cfg.keys()
-
-# Get DAL module name
-if 'display_type' not in keys:
-    print('Display type not configured')
-    sys.exit(1)
-dal_module = f'dal_{cfg["display_type"]}'
-if not gl.module_available(dal_module):
-    print(f'DAL implementation {dal_module} not available')
-    sys.exit(1)
-
-# Optional DAL configuration overrides previous settings
-dalcfg = f'{dal_module}.cfg'
-if gl.file_exists(dalcfg):
-    dacfg = gl.get_config(dalcfg)
-    cfg = cfg | dacfg
-    # Make sure keys list is updated
-    keys = cfg.keys()
 
 # Evaluate debug options first
 debug = 'debug' in cfg and cfg['debug']
@@ -134,15 +116,17 @@ btn = None
 if 'BTN' in keys:
     btn = hal.get_button(cfg['BTN'], pin_isr=btn_isr)
 
-# Seems to help sometimes...
+# Get DAL module name
+if 'display_type' not in keys:
+    raise Exception('Display type not configured')
+dal_module = f'dal_{cfg["display_type"]}'
+
+# DAL module may load large font file, optimize success
 gc.collect()
+if debug:
+    print(f'Free memory: {gl.niceSize(gc.mem_free())}')
 
-# Optional LAN connection to update RTC periodically
-lan = hal.get_lan()
-if lan is not None:
-    blink()
-
-# Initialize display
+# Initialize display, module may load local configuration
 display = __import__(dal_module).DAL(cfg)
 if debug:
     print('Display initialized')
@@ -157,7 +141,7 @@ colors = {
     "ltgreen": display.LTGREEN,
     "blue": display.BLUE,
     "ltblue": display.LTBLUE,
-    "cyan": display.CYAN,
+    "cyan" : display.CYAN,
     "ltcyan": display.LTCYAN,
     "magenta": display.MAGENTA,
     "ltmagenta": display.LTMAGENTA,
@@ -227,9 +211,37 @@ size = display.size
 
 # Need at least 8x4 pixels
 if size[0] < 8 or size[1] < 4:
-    print('Minimum display size is 8x4 pixels')
-    sys.exit(1)
+    raise Exception('Minimum display size is 8x4 pixels')
 
+# Options for time/date switching
+time_interval = 15
+if 'time_interval' in keys:
+    time_interval = cfg['time_interval']
+
+date_interval = 5
+if 'date_interval' in keys:
+    date_interval = cfg['date_interval']
+
+# Optional LAN connection to update RTC periodically
+lan_update = True
+if 'lan_update' in keys:
+    lan_update = cfg['lan_update']
+
+# Get rid of some data we no longer need
+del colors
+del keys
+
+# Seems to help sometimes...
+gc.collect()
+
+if debug:
+    print(f'Free memory : {gc.mem_free()}')
+
+lan = None
+if lan_update:
+    lan = hal.get_lan()
+    if lan is not None:
+        blink()
 
 # update the display screen with a bcd representation of the time
 # minimum geometric requirement 8 * 4 'virtual' pixels (6 digits + 2 colons)
@@ -272,15 +284,147 @@ def draw_frame():
 dots_on = True
 
 
-def blink_dots():
+def blink_colon():
     global dots_on, bcolor, ccolor
-
     tmp_color = ccolor if dots_on else bcolor
     display.dot_set(2, 1, tmp_color)
     display.dot_set(2, 2, tmp_color)
     display.dot_set(5, 1, tmp_color)
     display.dot_set(5, 2, tmp_color)
     dots_on = not dots_on
+
+
+def show_dots():
+    global bcolor, ccolor
+
+    display.dot_set(2, 3, ccolor)
+    display.dot_set(5, 3, ccolor)
+
+
+# Display 2 digit year - decimal 0..99 BCD [0..9 0..9]
+last_year = -1
+
+
+def update_year(val):
+    global last_year, scolor, bcolor
+    if val == last_year:
+        return
+
+    last_year = val
+    val %= 100
+
+    # Clear year pixels
+    display.xy_set(6, 0, bcolor)
+    display.xy_set(6, 1, bcolor)
+    display.xy_set(6, 2, bcolor)
+    display.xy_set(6, 3, bcolor)
+    display.xy_set(7, 0, bcolor)
+    display.xy_set(7, 1, bcolor)
+    display.xy_set(7, 2, bcolor)
+    display.xy_set(7, 3, bcolor)
+
+    # Display tens digit (0..9)
+    save = val
+    val = val // 10
+    val = val % 10
+    if val & 8 != 0:
+        display.xy_set(6, 0, scolor)
+    if val & 4 != 0:
+        display.xy_set(6, 1, scolor)
+    if val & 2 != 0:
+        display.xy_set(6, 2, scolor)
+    if val & 1 != 0:
+        display.xy_set(6, 3, scolor)
+
+    # Display ones digit (0..9)
+    val = save
+    val = val % 10
+    if val & 8 != 0:
+        display.xy_set(7, 0, scolor)
+    if val & 4 != 0:
+        display.xy_set(7, 1, scolor)
+    if val & 2 != 0:
+        display.xy_set(7, 2, scolor)
+    if val & 1 != 0:
+        display.xy_set(7, 3, scolor)
+
+
+# Display 2 digit month - decimal 1..12 BCD [0..1 0..9]
+last_month = -1
+
+
+def update_month(val):
+    global last_month, mcolor, bcolor
+    if last_month == val:
+        return
+
+    last_month = val
+    val = min(12, max(1, val))
+
+    # Clear month pixels
+    display.xy_set(3, 3, bcolor)
+    display.xy_set(4, 0, bcolor)
+    display.xy_set(4, 1, bcolor)
+    display.xy_set(4, 2, bcolor)
+    display.xy_set(4, 3, bcolor)
+
+    # Display tens digit (0..1)
+    if val > 9:
+        display.xy_set(3, 3, mcolor)
+
+    # Display ones digit (0..9)
+    val = val % 10
+    if val & 8 != 0:
+        display.xy_set(4, 0, mcolor)
+    if val & 4 != 0:
+        display.xy_set(4, 1, mcolor)
+    if val & 2 != 0:
+        display.xy_set(4, 2, mcolor)
+    if val & 1 != 0:
+        display.xy_set(4, 3, mcolor)
+
+
+# Display 2 digit day - decimal 0..31 BCD [0..3 0..9]
+last_day = -1
+
+
+def update_day(val):
+    global last_day, hcolor, bcolor
+    if last_day == val:
+        return
+
+    last_day = val
+    val = min(31, max(1, val))
+
+    # Clear day pixels
+    display.xy_set(0, 2, bcolor)
+    display.xy_set(0, 3, bcolor)
+    display.xy_set(1, 0, bcolor)
+    display.xy_set(1, 1, bcolor)
+    display.xy_set(1, 2, bcolor)
+    display.xy_set(1, 3, bcolor)
+
+    # Display tens digit (0..3)
+    if val > 29 != 0:
+        display.xy_set(0, 2, hcolor)
+        display.xy_set(0, 3, hcolor)
+    elif val > 19 != 0:
+        display.xy_set(0, 2, hcolor)
+    elif val > 9 != 0:
+        display.xy_set(0, 3, hcolor)
+
+    # Display ones digit (0..9)
+    val = val % 10
+    if val & 8 != 0:
+        display.xy_set(1, 0, hcolor)
+    if val & 4 != 0:
+        display.xy_set(1, 1, hcolor)
+    if val & 2 != 0:
+        display.xy_set(1, 2, hcolor)
+    if val & 1 != 0:
+        display.xy_set(1, 3, hcolor)
+
+    show_dots()
 
 
 # Display 2 digit hour - decimal 0..23 BCD [0..2 0..9]
@@ -415,25 +559,59 @@ def update_seconds(val):
     if val & 1 != 0:
         display.xy_set(7, 3, scolor)
 
-    blink_dots()
+    blink_colon()
+
+
+# Force all digits to be displayed
+def force_show():
+    global last_year, last_month, last_day
+    global last_hour, last_min, last_sec
+
+    last_year = last_month = last_day = -1
+    last_hour = last_min = last_sec = -1
 
 
 # Display test for graphics fine-tuning
-def test():
-    global last_hour, last_min, last_sec
+def date_test():
+    force_show()
+    display.fill(bcolor)
+    draw_frame()
+    for i in range(26, 51):
+        update_year(2000 + i)
+        display.show()
+        time.sleep(1)
+    for i in range(1, 13):
+        update_month(i)
+        display.show()
+        time.sleep(1)
+    for i in range(1, 32):
+        update_day(i)
+        display.show()
+        time.sleep(1)
+    update_day(12)
+    display_show()
+
+
+# Display test for graphics fine-tuning
+def time_test():
     global dots_on
-    last_hour = last_min = last_sec = -1
+
+    force_show()
     dots_on = True
     display.fill(bcolor)
     draw_frame()
-    update_hours(23)
-    if show_digits:
+    for i in range(0, 24):
+        update_hours(i)
         display.show()
-    update_minutes(59)
-    if show_digits:
+        time.sleep(1)
+    for i in range(0, 60):
+        update_minutes(i)
         display.show()
-    update_seconds(59)
-    display.show()
+        time.sleep(1)
+    for i in range(0, 60):
+        update_seconds(i)
+        display.show()
+        time.sleep(1)
 
 
 # Clear display from REPL
@@ -443,30 +621,59 @@ def clear():
 
 # Get the time and update the display
 def update_time():
-    if display_rtc:
-        # Display the local time directly
-        lt = hal.get_time_direct()
-        hours = lt[4]
-        mins = lt[5]
-        secs = lt[6]
+    global show_time
+
+    if show_time:
+        if display_rtc:
+            lt = hal.get_time_direct()
+            # Display the local time directly
+            hours = lt[4]
+            mins = lt[5]
+            secs = lt[6]
+        else:
+            # Assume RTC time is UTC, get local time using genlib
+            lt = gl.localtime()
+            hours = lt[3]
+            mins = lt[4]
+            secs = lt[5]
+        update_hours(hours)
+        if show_digits:
+            display.show()
+        update_minutes(mins)
+        if show_digits:
+            display.show()
+        update_seconds(secs)
     else:
-        # Assume RTC time is UTC, get local time using genlib
-        lt = gl.localtime()
-        hours = lt[3]
-        mins = lt[4]
-        secs = lt[5]
-    update_hours(hours)
-    if show_digits:
-        display.show()
-    update_minutes(mins)
-    if show_digits:
-        display.show()
-    update_seconds(secs)
+        if display_rtc:
+            lt = hal.get_time_direct()
+        else:
+            lt = gl.localtime()
+        update_day(lt[2])
+        if show_digits:
+            display.show()
+        update_month(lt[1])
+        if show_digits:
+            display.show()
+        update_year(lt[0])
     display.show()
 
 
 # main loop sleep time (seconds)
 loop_delay = 0.1
+
+# Set up time/date switching
+time_counter = time_interval / loop_delay
+if time_counter <= 0:
+    time_counter = 0
+
+date_counter = date_interval / loop_delay
+if date_counter < 0:
+    date_counter = 0
+
+if date_counter == 0 and time_counter == 0:
+    raise Exception('Both time and date are not displayed, I quit')
+
+show_time = time_counter > 0
 
 # update RTC periodically (seconds)
 rtc_interval = 60 * 60
@@ -481,7 +688,7 @@ if debug:
     print('Starting clock loop')
 
 try:
-    display.fill(bcolor)
+    display.fill(bcolor, show=True)
     draw_frame()
     loop_cnt = 0
     while not stop:
@@ -495,6 +702,20 @@ try:
             if debug:
                 print('Garbage collection')
             gc.collect()
+        if show_time:
+            if date_counter > 0 and loop_cnt % time_counter == 0:
+                show_time = False
+                force_show()
+                display.fill(bcolor, show=True)
+                time.sleep(0.5)
+                draw_frame()
+        else:
+            if time_counter > 0 and loop_cnt % date_counter == 0:
+                show_time = True
+                force_show()
+                display.fill(bcolor, show=True)
+                time.sleep(0.5)
+                draw_frame()
         update_time()
         time.sleep(loop_delay)
 except KeyboardInterrupt:
