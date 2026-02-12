@@ -80,8 +80,14 @@ class DAL(NeoPixel):
     VVLTGRAY = COLOR.VVLTGRAY
 
     # Display initialization
-    def __init__(self, cfg):
+    def __init__(self, cfg={}):
+        # Load module configuration
+        dcfg = gl.get_config(f'{__name__}.cfg')
+        cfg |= dcfg
+
+        # Get merged configuration keys
         keys = cfg.keys()
+
         if 'neopixel_din' not in keys:
             print('neopixel data pin not configured')
             return None
@@ -153,7 +159,7 @@ class DAL(NeoPixel):
         self.display.show()
 
     # fill the display with the indicated color
-    def fill(self, color, show=True):
+    def fill(self, color, show=False):
         for i in range(self.pixel_cnt):
             self.display.setPixelColor(i, neo_color(color))
         if show:
@@ -175,14 +181,14 @@ class DAL(NeoPixel):
             self.display.setPixelColor(pos, neo_color(color))
 
     # Draw a horizontal line with the indicated color
-    def hline(self, x, y, length, color, show=True):
+    def hline(self, x, y, length, color, show=False):
         for i in range(length):
             self.pixel2d(x+i, y, color)
         if show:
             self.show()
 
     # Fill a rectangle with the indicated color
-    def fill_rect(self, x, y, lx, ly, color, show=True):
+    def fill_rect(self, x, y, lx, ly, color, show=False):
         px = x
         py = y
         for i in range(ly):

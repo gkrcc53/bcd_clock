@@ -11,6 +11,7 @@
 #   ssd1306_width      - 128 if not defined (unrotated)
 #   ssd1306_height     - 64 if not defined (unrotated)
 #   ssd1306_rotate     - 0 if not defined, [0..3]
+#   ssd1306_font_size  - 20 if not defined
 #
 # Notes
 #   rotate values of 1 and 3 do not work correctly, Not sure why...
@@ -25,7 +26,7 @@ if gl.platform != 'linux':
 import time
 from luma.core.interface.serial import i2c
 from luma.oled.device import ssd1306
-from PIL import ImageDraw, Image
+from PIL import ImageDraw, Image, ImageFont
 import oledcolor as COLOR
 
 
@@ -50,9 +51,22 @@ class DAL():
     VVLTGRAY = COLOR.VVLTGRAY
 
     # Display initialization
-    def __init__(self, cfg):
+    def __init__(self, cfg={}):
+        # Load module configuration
+        dcfg = gl.get_config(f'{__name__}.cfg')
+        cfg |= dcfg
+
+        # Get merged configuration keys
         keys = cfg.keys()
-        self._debug = 'debug' in keys and cfg['debug']
+
+        debug = 'debug' in keys and cfg['debug']
+        if debug:
+            print('DAL configuration')
+            for key in keys:
+                print(f'{key:<20}{cfg[key]}')
+            print()
+        self._debug = debug
+
         # i2c options
         port = 1
         if 'i2c_port' in keys:
@@ -70,6 +84,9 @@ class DAL():
         rotate = 0
         if 'ssd1306_rotate' in keys:
             rotate = cfg['ssd1306_rotate']
+        fsize = 20
+        if 'ssd1306_font_size' in keys:
+            fsize = cfg['ssd1306_font_size']
         serial = i2c(port=port, address=addr)
         self.display = ssd1306(serial, width=width, height=height, rotate=rotate)
         if rotate == 0 or rotate == 2:
@@ -78,12 +95,19 @@ class DAL():
         else:
             self.cols = height
             self.rows = width
+        if debug:
+            print(f'display size: {self.cols}x{self.rows}')
+
         self.width = self.cols
         self.height = self.rows
         self.image = Image.new("1", (self.cols, self.rows), color=0)
         self.draw = ImageDraw.Draw(self.image)
         self.display.clear()
         self.display.show()
+
+        # Get font and set scale
+        self._font = ImageFont.load_default(fsize)
+        self._scale = 1
 
         # define BCD clock geometric parameters
         # virtual pixel size
@@ -116,6 +140,9 @@ class DAL():
         config['pixel_y'] = self.pixel_y
         # clock pixel border
         config['border'] = self.border
+        # simple text support
+        config['text'] = True
+        config['opaque_text'] = False
         return config
 
     # Return the 2D size of the display
@@ -127,13 +154,10 @@ class DAL():
     # Some displays just modify a buffer/image that needs to be sent to the device
     def show(self):
         self.display.display(self.image)
-        self.display.show()
 
     # set all the pixels in the display to black
     def clear(self, show=True):
-        self.display.clear()
-        if show:
-            self.show()
+        self.fill(COLOR.BLACK, show)
 
     # Set the color of a pixel at a 2D location w/o update
     # Assume (0,0) is at upper left of display
@@ -176,11 +200,25 @@ class DAL():
         posy = self.start_y + dot_ofs + y * (self.pixel_y + self.border)
         self.fill_rect(posx, posy, dot_size, dot_size, color)
 
+    # Return the bounding box for the indicated text
+    def text_box(self, text, scale=0):
+        return self._font.getbbox(text)
 
-def test1(display):
+    # Draw text at the specified location
+    def text(self, text, x, y, color=COLOR.WHITE, scale=0):
+        self.draw.text((x, y), text, font=self._font, fill=color)
+
+
+def test0(display):
     display.draw.rectangle((0, 0, display.size[0]-1, display.size[1]-1), outline=display.WHITE)
     display.show()
-    time.sleep(5)
+    time.sleep(2)
+
+
+def test1(display):
+    display.text('DAL SSD1306', 3, 3, display.WHITE)
+    display.fill_rect(30, 30, 20, 20, display.WHITE, show=True)
+    time.sleep(2)
     display.clear()
 
 
@@ -200,7 +238,7 @@ def test2(display):
         time.sleep(0.5)
 
     posx = start_x
-    for i in range(4):
+    for i in range(1,4):
         posy = start_y + i * (pixel_y + border)
         display.fill_rect(posx, posy, pixel_x, pixel_y, COLOR.WHITE)
         display.show()
@@ -211,18 +249,18 @@ def test2(display):
 
 
 def main():
-    print('Raspberry Pi SH1106 DAL implementation')
+    print('Raspberry Pi SSD1306 DAL implementation')
     cfg = gl.get_config('hw.cfg')
     dcfg = gl.get_config('display.cfg')
     cfg |= dcfg
+    cfg['ssd1306_font_size'] = 12
     display = DAL(cfg)
-    print(f'display size: {display.size[0]}x{display.size[1]}')
     cfg = display.configuration()
-    print(f'clock cfg: {cfg}')
     return display
 
 
 if __name__ == "__main__":
     dsp = main()
+    test0(dsp)
     test1(dsp)
     test2(dsp)

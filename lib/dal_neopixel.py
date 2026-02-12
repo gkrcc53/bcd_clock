@@ -11,7 +11,7 @@
 #   neopixel_cols         * panel column count
 #   neopixel_brightness   - [0..1], 0.1 if not defined
 #   neopixel_drive        - Pin drive value if supported, else 0
-#   neopixel_show_delay   - 10ms if not defined
+#   neopixel_show_delay   - delay after write, 0 ms if not defined
 
 # Make sure we're on the right platform
 import sys
@@ -72,8 +72,14 @@ class DAL(NeoPixel):
     VVLTGRAY = COLOR.VVLTGRAY
 
     # Display initialization
-    def __init__(self, cfg):
+    def __init__(self, cfg={}):
+        # Load module configuration
+        dcfg = gl.get_config(f'{__name__}.cfg')
+        cfg |= dcfg
+
+        # Get merged configuration keys
         keys = cfg.keys()
+
         if 'neopixel_din' not in keys:
             print('neopixel data pin not configured')
             return None
@@ -82,7 +88,7 @@ class DAL(NeoPixel):
         self.cols = cfg['neopixel_cols']
         self.pixel_cnt = self.rows * self.cols
         self.brightness = 0.1
-        self.show_delay = 10
+        self.show_delay = 0
         if 'neopixel_show_delay' in keys:
             self.show_delay = cfg['neopixel_show_delay']
         order = cfg['neopixel_pixel_order']
@@ -178,6 +184,12 @@ class DAL(NeoPixel):
         if show:
             self.show()
 
+    # Fill the display with the indicated color
+    def fill(self, color, show=False):
+        super().fill(color)
+        if show:
+            self.show()
+
     # Fill a rectangle with the indicated color
     def fill_rect(self, x, y, lx, ly, color, show=True):
         px = x
@@ -221,13 +233,11 @@ if __name__ == "__main__":
     if test_power:
         print('All white - maximum current drain')
         # fill is low level driver - no brightness correction
-        display.fill(COLOR.WHITE)
-        display.show()
+        display.fill(COLOR.WHITE, show=True)
         time.sleep(5)
 
     print('All white - default brightness')
-    display.fill(display.dim(COLOR.WHITE))
-    display.show()
+    display.fill(display.dim(COLOR.WHITE), show=True)
     time.sleep(5)
     display.clear()
 

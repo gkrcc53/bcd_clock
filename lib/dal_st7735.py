@@ -57,14 +57,18 @@ class DAL(ST7735):
     VVLTGRAY = COLOR.VVLTGRAY
 
     # Display initialization
-    def __init__(self, cfg):
+    def __init__(self, cfg={}):
         # Define initialization function dictionary
         inits = {"initr": self.initr,
                  "initb": self.initb,
                  "initb2": self.initb2,
                  "initg": self.initg}
 
-        # Get configuration keys
+        # Load module configuration
+        dcfg = gl.get_config(f'{__name__}.cfg')
+        cfg |= dcfg
+
+        # Get merged configuration keys
         keys = cfg.keys()
 
         # Get driver settings
@@ -167,9 +171,7 @@ class DAL(ST7735):
         # clock pixel border
         config['border'] = self.border
         # simple text support
-        twidth = sysfont['Width'] + 1
-        theight = sysfont['Height'] + 1
-        config['text'] = [twidth, theight]
+        config['text'] = True
         config['opaque_text'] = True
         return config
 
@@ -192,25 +194,48 @@ class DAL(ST7735):
         pass
 
     # convert low level API
-    def fill_rect(self, x, y, xlen, ylen, color):
+    def fill(self, color, show=False):
+        super().fill(color)
+
+    # convert low level API
+    def fill_rect(self, x, y, xlen, ylen, color, show=False):
         super().local_fill_rect((x, y), (xlen, ylen), color)
 
     # convert low level API
-    def hline(self, x, y, length, color):
+    def hline(self, x, y, length, color, show=False):
         super().hline((x, y), length, color)
 
     # convert low level API
-    def vline(self, x, y, length, color):
+    def vline(self, x, y, length, color, show=False):
         super().vline((x, y), length, color)
 
-    # convert low level API
-    def line(self, x0, y0, x1, y1, color):
+    # convert low level API, avoid name conflicts
+    def line(self, x0, y0, x1, y1, color, show=False):
         if x0 == x1:
-            self.vline(x0, y0, y1 - y0, color)
+            if y0 >= y1:
+                ylen = y0 - y1 + 1
+                ypos = y1
+            else:
+                ylen = y1 - y0 + 1
+                ypos = y0
+            self.vline(x0, ypos, ylen, color)
         elif y0 == y1:
-            self.hline(x0, y0, x1 - y1, color)
+            if x0 >= x1:
+                xlen = x0 - x1 + 1
+                xpos = x1
+            else:
+                xlen = x1 - x0 + 1
+                xpos = x0
+            self.hline(xpos, y0, xlen, color)
         else:
-            super().line((x0, y0), (x1, y1), color)
+            super().local_line((x0, y0), (x1, y1), color)
+
+    # Return the bounding box for the indicated text
+    def text_box(self, text, scale=0):
+        lscale = self._scale if scale <= 0 else scale
+        twidth = sysfont['Width'] + 1
+        theight = sysfont['Height'] + 1
+        return [0, 0, twidth * len(text) * lscale, theight * lscale]
 
     # convert low level API
     def text(self, text, x, y, color=COLOR.WHITE, scale=0):
@@ -220,7 +245,7 @@ class DAL(ST7735):
 
 def test1(display):
     ul = (0, 0)
-    lr = (display.size[0]-1, display.size[1]-1)
+    lr = (display.size[0]-5, display.size[1]-5)
     display.line(ul[0], ul[1], lr[0], ul[1], COLOR.WHITE)
     display.line(lr[0], ul[1], lr[0], lr[1], COLOR.WHITE)
     display.line(lr[0], lr[1], ul[0], lr[1], COLOR.WHITE)
@@ -251,7 +276,7 @@ def test2(display):
         time.sleep(0.5)
 
     posx = start_x
-    for i in range(4):
+    for i in range(1, 4):
         posy = start_y + i * (pixel_y + border)
         display.fill_rect(posx, posy, pixel_x, pixel_y, COLOR.LTGRAY)
         display.show()

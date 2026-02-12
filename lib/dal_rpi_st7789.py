@@ -14,19 +14,20 @@
 #     CS = GPIO8
 #
 # Configuration (* --> required)
-#   spi_cs        - 0 if not defined, 0-->cs on GPIO8, 1-->cs on GPIO7
-#   spi_dc        * dc pin number (int)
-#   spi_blk       - backlight pin
-#                   not used by this driver, short to 3.3V
-#   spi_rst       - rst pin, None if not defined
-#   spi_speed     - not used in this driver
-#                   optinally set in /boot/firmware/config.txt
-#   st7789_width  - 240 if not defined
-#   st7789_height - 320 if not defined
-#   st7789_offset - [0,0] if not defined, else [left,top]
-#   st7789_rotate - 90 if not defined [0, 90, 180, 270]
-#   st7789_invert - False if not defined or unsupported, invert colors
-#   st7789_bgr    - False if not defined (True --> bgr, else rgb)
+#   spi_cs           - 0 if not defined, 0-->cs on GPIO8, 1-->cs on GPIO7
+#   spi_dc           * dc pin number (int)
+#   spi_blk          - backlight pin
+#                      not used by this driver, short to 3.3V
+#   spi_rst          - rst pin, None if not defined
+#   spi_speed        - not used in this driver
+#                      optinally set in /boot/firmware/config.txt
+#   st7789_width     - 240 if not defined
+#   st7789_height    - 320 if not defined
+#   st7789_offset    - [0,0] if not defined, else [left,top]
+#   st7789_rotate    - 90 if not defined [0, 90, 180, 270]
+#   st7789_invert    - False if not defined or unsupported, invert colors
+#   st7789_bgr       - False if not defined (True --> bgr, else rgb)
+#   sh1106_font_size - 50 if not defined
 
 
 # Make sure we're on the right platform
@@ -38,7 +39,7 @@ if gl.platform != 'linux':
 
 # import platform/device specific modules
 import time
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 import board
 import digitalio
 import inspect
@@ -73,17 +74,22 @@ class DAL(object):
     VVLTGRAY = COLOR.VVLTGRAY
 
     # Display initialization
-    def __init__(self, cfg=None):
-        # get and optionally display configuration
-        keys = {}
-        if cfg is not None:
-            keys = sorted(cfg.keys())
+    def __init__(self, cfg={}):
+        # Load module configuration
+        dcfg = gl.get_config(f'{__name__}.cfg')
+        cfg |= dcfg
+
+        # Get merged configuration keys
+        keys = cfg.keys()
+
         debug = 'debug' in cfg and cfg['debug']
         if debug:
             print('DAL configuration')
             for key in keys:
                 print(f'{key:<20}{cfg[key]}')
             print()
+        self._debug = debug
+
         # get device specific configuration settings
         # required keys first
         if 'spi_dc' not in keys:
@@ -115,6 +121,9 @@ class DAL(object):
         invert = False
         if 'st7789_invert' in keys:
             invert = cfg['st7789_invert']
+        fsize = 50
+        if 'st7789_font_size' in keys:
+            fsize = cfg['st7789_font_size']
 
         if rotate == 0 or rotate == 180:
             self.cols = width
@@ -166,13 +175,15 @@ class DAL(object):
             self.display = st7789.ST7789(spi, dc_pin, cs_pin, rst_pin,
                                          width=width, height=height,
                                          rotation=rotate)
-            
+
         if rotate % 180 == 90:
             self.cols = height
             self.rows = width
         else:
             self.cols = width
             self.rows = height
+        if debug:
+            print(f'display size: {self.cols}x{self.rows}')
 
         # Initialize PIL classes
         self.image = Image.new("RGB", (self.cols, self.rows))
@@ -180,6 +191,10 @@ class DAL(object):
 
         # clear device
         self.clear()
+
+        # Get font and set scale
+        self._font = ImageFont.load_default(fsize)
+        self._scale = 1
 
         # define BCD clock geometric parameters
         pixel_x = self.cols // 8
@@ -209,6 +224,9 @@ class DAL(object):
         config['pixel_y'] = self.pixel_y
         # clock pixel border
         config['border'] = self.border
+        # simple text support
+        config['text'] = True
+        config['opaque_text'] = False
         return config
 
     # Return the 2D size of the display
@@ -231,7 +249,7 @@ class DAL(object):
         self.draw.point([(x, y)], fill=color)
 
     # Draw a horizontal line with the indicated color
-    def hline(self, x, y, length, color, show=True):
+    def hline(self, x, y, length, color, show=False):
         if length == 0:
             return
         dir = 1
@@ -244,7 +262,7 @@ class DAL(object):
             self.show()
 
     # Draw a vertical line with the indicated color
-    def vline(self, x, y, length, color, show=True):
+    def vline(self, x, y, length, color, show=False):
         if length == 0:
             return
         dir = 1
@@ -257,7 +275,7 @@ class DAL(object):
             self.show()
 
     # Fill a rectangle with the indicated color
-    def fill_rect(self, x, y, lx, ly, color, show=True):
+    def fill_rect(self, x, y, lx, ly, color, show=False):
         px = x
         py = y
         for i in range(ly):
@@ -267,7 +285,7 @@ class DAL(object):
             self.show()
 
     # Fill the display with the indicated color
-    def fill(self, color, show=True):
+    def fill(self, color, show=False):
         self.fill_rect(0, 0, self.cols, self.rows, color, show)
 
     # set single virtual 'pixel' at x, y to color w/o update
@@ -275,7 +293,7 @@ class DAL(object):
         if self.pixel_x > 1 or self.pixel_y > 1:
             posx = self.start_x + x * (self.pixel_x + self.border)
             posy = self.start_y + y * (self.pixel_y + self.border)
-            self.fill_rect(posx, posy, self.pixel_x, self.pixel_y, color, False)
+            self.fill_rect(posx, posy, self.pixel_x, self.pixel_y, color)
         else:
             self.pixel2d(self.start_x + x, self.start_y + y, color)
 
@@ -291,24 +309,35 @@ class DAL(object):
             posy = self.start_y + dot_ofs + y * (self.pixel_y + self.border)
             self.fill_rect(posx, posy, dot_size, dot_size, color)
 
-    def text(self, text, x, y, color, scale=1):
-        opaque = (color[0], color[1], color[2], 0)
-        self.draw.text((x, y), text, font=self.font, fill=opaque)
+    # Return the bounding box for the indicated text
+    def text_box(self, text, scale=0):
+        return self._font.getbbox(text)
+
+    # Draw text at the specified location
+    def text(self, text, x, y, color=COLOR.WHITE, scale=0):
+        self.draw.text((x, y), text, font=self._font, fill=color)
+
+
+def test0(display):
+    display.draw.rectangle((0, 0, display.size[0]-1, display.size[1]-1), outline=display.WHITE)
+    display.show()
+    time.sleep(2)
 
 
 def test1(display):
-    display.draw.rectangle((0, 0, display.size[0]-1, display.size[1]-1), outline=display.WHITE)
-    display.show()
-    time.sleep(5)
+    display.text('DAL ST7789', 3, 3, display.YELLOW)
+    display.fill_rect(50, 50, 20, 20, display.RED, show=True)
+    time.sleep(2)
     display.clear()
 
 
 def test2(display):
-    start_x = 8
-    start_y = 8
-    pixel_x = 12
-    pixel_y = 12
-    border = 2
+    cfg = display.configuration()
+    start_x = cfg['start_x']
+    start_y = cfg['start_y']
+    pixel_x = cfg['pixel_x']
+    pixel_y = cfg['pixel_y']
+    border = cfg['border']
 
     posy = start_y
     for i in range(8):
@@ -318,7 +347,7 @@ def test2(display):
         time.sleep(0.5)
 
     posx = start_x
-    for i in range(4):
+    for i in range(1, 4):
         posy = start_y + i * (pixel_y + border)
         display.fill_rect(posx, posy, pixel_x, pixel_y, COLOR.WHITE)
         display.show()
@@ -333,10 +362,9 @@ def main():
     cfg = gl.get_config('hw.cfg')
     dcfg = gl.get_config('display.cfg')
     cfg |= dcfg
+    cfg['st7789_font_size'] = 30
     display = DAL(cfg)
-    print(f'display size: {display.size[0]}x{display.size[1]}')
     cfg = display.configuration()
-    print(f'clock cfg: {cfg}')
     return display
 
 

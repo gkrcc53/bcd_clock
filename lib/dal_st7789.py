@@ -3,6 +3,7 @@
 #
 # Configuration (* --> required)
 #   display_type        * "st7789"
+#   text_font           - font file, default is 'vga1_16x32'
 #   st7789_width        * limited choice, see below
 #   st7789_height       * limited choice, see below
 #   st7789_rotate       - [0]..3
@@ -29,7 +30,6 @@ if gl.platform == 'linux':
 from machine import SPI, Pin
 from st7789 import ST7789
 import tftcolor as COLOR
-import vga2_16x32 as font
 
 
 class DAL(ST7789):
@@ -56,9 +56,23 @@ class DAL(ST7789):
     BGR = 8
 
     # Display initialization
-    def __init__(self, cfg):
-        # Get display configuration
+    def __init__(self, cfg={}):
+        # Load module configuration
+        dcfg = gl.get_config(f'{__name__}.cfg')
+        cfg |= dcfg
+
+        # Get merged configuration keys
         keys = cfg.keys()
+        debug = 'debug' in keys and cfg['debug']
+
+        # Load font, default if not redefined
+        ffile = 'vga1_16x32'
+        if 'text_font' in keys:
+            ffile = cfg['text_font']
+        self._font = __import__(ffile)
+        if debug:
+            print(f'Text font is {ffile}')
+
         baud = 40_000_000
         if 'spi_baud' in keys:
             baud = cfg['spi_baud']
@@ -130,7 +144,7 @@ class DAL(ST7789):
         # clock pixel border
         config['border'] = self.border
         # simple text support
-        config['text'] = [font.WIDTH, font.HEIGHT]
+        config['text'] = True
         config['opaque_text'] = True
         return config
 
@@ -138,6 +152,10 @@ class DAL(ST7789):
     @property
     def size(self):
         return (self.width, self.height)
+
+    # convert low level API
+    def fill(self, color, show=False):
+        super().fill(color)
 
     # convert low level API
     def fill_rect(self, x, y, xlen, ylen, color):
@@ -161,9 +179,14 @@ class DAL(ST7789):
     def show(self):
         pass
 
+    # Return the bounding box for the indicated text
+    def text_box(self, text, scale=0):
+        lscale = self._scale if scale <= 0 else scale
+        return [0, 0, self._font.WIDTH * len(text) * lscale, self._font.HEIGHT * lscale]
+
     # convert low level API (font scaling)
     def text(self, text, x, y, color=COLOR.WHITE, scale=0):
-        super().text(font, text, x, y, color=color)
+        super().text(self._font, text, x, y, color=color)
 
 
 def test1(display):

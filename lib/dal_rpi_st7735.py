@@ -61,10 +61,13 @@ class DAL(object):
 
     # Display initialization
     def __init__(self, cfg=None):
-        # get and optionally display configuration
-        keys = {}
-        if cfg is not None:
-            keys = sorted(cfg.keys())
+        # Load module configuration
+        dcfg = gl.get_config(f'{__name__}.cfg')
+        cfg |= dcfg
+
+        # Get merged configuration keys
+        keys = cfg.keys()
+
         debug = 'debug' in cfg and cfg['debug']
         if debug:
             print('DAL configuration')
@@ -187,7 +190,7 @@ class DAL(object):
         self.draw.point([(x, y)], fill=color)
 
     # Draw a horizontal line with the indicated color
-    def hline(self, x, y, length, color, show=True):
+    def hline(self, x, y, length, color, show=False):
         if length == 0:
             return
         dir = 1
@@ -200,7 +203,7 @@ class DAL(object):
             self.show()
 
     # Draw a vertical line with the indicated color
-    def vline(self, x, y, length, color, show=True):
+    def vline(self, x, y, length, color, show=False):
         if length == 0:
             return
         dir = 1
@@ -213,7 +216,7 @@ class DAL(object):
             self.show()
 
     # Fill a rectangle with the indicated color
-    def fill_rect(self, x, y, lx, ly, color, show=True):
+    def fill_rect(self, x, y, lx, ly, color, show=False):
         px = x
         py = y
         for i in range(ly):
@@ -223,7 +226,7 @@ class DAL(object):
             self.show()
 
     # Fill the display with the indicated color
-    def fill(self, color, show=True):
+    def fill(self, color, show=False):
         self.fill_rect(0, 0, self.cols, self.rows, color, show)
 
     # set single virtual 'pixel' at x, y to color w/o update
@@ -257,11 +260,12 @@ def test1(display):
 
 
 def test2(display):
-    start_x = 8
-    start_y = 8
-    pixel_x = 12
-    pixel_y = 12
-    border = 2
+    cfg = display.configuration()
+    start_x = cfg['start_x']
+    start_y = cfg['start_y']
+    pixel_x = cfg['pixel_x']
+    pixel_y = cfg['pixel_y']
+    border = cfg['border']
 
     posy = start_y
     for i in range(8):
@@ -271,7 +275,7 @@ def test2(display):
         time.sleep(0.5)
 
     posx = start_x
-    for i in range(4):
+    for i in range(1, 4):
         posy = start_y + i * (pixel_y + border)
         display.fill_rect(posx, posy, pixel_x, pixel_y, COLOR.WHITE)
         display.show()

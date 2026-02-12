@@ -50,8 +50,22 @@ class DAL(SH1106_I2C):
     VVLTGRAY = COLOR.VVLTGRAY
 
     # Display initialization
-    def __init__(self, cfg):
+    def __init__(self, cfg={}):
+        # Load module configuration
+        dcfg = gl.get_config(f'{__name__}.cfg')
+        cfg |= dcfg
+
+        # Get merged configuration keys
         keys = cfg.keys()
+
+        debug = 'debug' in keys and cfg['debug']
+        if debug:
+            print('DAL configuration')
+            for key in keys:
+                print(f'{key:<20}{cfg[key]}')
+            print()
+        self._debug = debug
+
         if 'i2c_sda' not in keys:
             print('I2C communication not configured')
             sys.exit(1)
@@ -129,11 +143,23 @@ class DAL(SH1106_I2C):
         # clock pixel border
         config['border'] = self.border
         # simple text support
-        config['text'] = [8, 8]
+        config['text'] = True
         return config
 
     def show(self, full=True):
         super().local_show(full_update=full)
+
+    # Fill the display with the indicated color
+    def fill(self, color, show=False):
+        super().fill(color)
+        if show:
+            self.show()
+
+    # Fill a rectangle with the indicated color
+    def fill_rect(self, x, y, lx, ly, color, show=False):
+        super().fill_rect(x, y, lx, ly, color)
+        if show:
+            self.show()
 
     # set single virtual 'pixel' at x, y to color
     def xy_set(self, x, y, color):
@@ -149,6 +175,12 @@ class DAL(SH1106_I2C):
         posy = self.start_y + dot_ofs + y * (self.pixel_y + self.border)
         super().fill_rect(posx, posy, dot_size, dot_size, color)
 
+    # Return the bounding box for the indicated text
+    def text_box(self, text, scale=0):
+        lscale = self._scale if scale <= 0 else scale
+        return [0, 0, 8 * len(text) * lscale, 8 * lscale]
+
+    # Draw text at the specified location
     def text(self, text, x, y, color=1, scale=0):
         lscale = self._scale if scale <= 0 else scale
         super().text_scaled(text, x, y, color=color, scale=lscale)
@@ -187,7 +219,7 @@ def test2(display):
         time.sleep(0.5)
 
     posx = start_x
-    for i in range(4):
+    for i in range(1, 4):
         posy = start_y + i * (pixel_y + border)
         display.fill_rect(posx, posy, pixel_x, pixel_y, 1)
         display.show(True)

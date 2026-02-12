@@ -14,7 +14,7 @@
 import rgbcolor as COLOR
 
 # usually need genlib
-# import genlib as gl
+import genlib as gl
 
 
 # might derive from some super-class
@@ -40,14 +40,28 @@ class DAL(object):
     VVLTGRAY = COLOR.VVLTGRAY
 
     # Display initialization
-    def __init__(self, cfg=None):
-        keys = {}
-        if cfg is not None:
-            keys = cfg.keys()
-        self._debug = 'debug' in keys and cfg['debug']
+    def __init__(self, cfg={}):
+        # Load module configuration
+        dcfg = gl.get_config(f'{__name__}.cfg')
+        cfg |= dcfg
+
+        # Get merged configuration keys
+        keys = cfg.keys()
+
+        debug = 'debug' in keys and cfg['debug']
+        if debug:
+            print('DAL configuration')
+            for key in keys:
+                print(f'{key:<20}{cfg[key]}')
+            print()
+        self._debug = debug
+
         # get device specific configuration settings
         self.cols = 1
         self.rows = 1
+        if debug:
+            print(f'display size: {self.cols}x{self.rows}')
+
         # initialize device/superclass
         # set device defaults
         # clear device
@@ -72,6 +86,9 @@ class DAL(object):
         config['pixel_y'] = self.pixel_y
         # clock pixel border
         config['border'] = self.border
+        # simple text support
+        config['text'] = False
+        config['opaque_text'] = False
         return config
 
     # Return the 2D size of the display
@@ -95,21 +112,21 @@ class DAL(object):
         pass
 
     # Draw a horizontal line with the indicated color
-    def hline(self, x, y, length, color, show=True):
+    def hline(self, x, y, length, color, show=False):
         for i in range(length):
             self.pixel2d(x+i, y, color)
         if show:
             self.show()
 
     # Draw a vertical line with the indicated color
-    def vline(self, x, y, length, color, show=True):
+    def vline(self, x, y, length, color, show=False):
         for i in range(length):
             self.pixel2d(x, y+i, color)
         if show:
             self.show()
 
     # Fill a rectangle with the indicated color
-    def fill_rect(self, x, y, lx, ly, color, show=True):
+    def fill_rect(self, x, y, lx, ly, color, show=False):
         px = x
         py = y
         for i in range(ly):
@@ -119,7 +136,7 @@ class DAL(object):
             self.show()
 
     # Fill the display with the indicated color
-    def fill(self, color, show=True):
+    def fill(self, color, show=False):
         self.fill_rect(0, 0, self.cols-1, self.rows-1, color, show)
 
     # set single virtual 'pixel' at x, y to color
@@ -145,11 +162,14 @@ class DAL(object):
 
 def main():
     print('EMPTY DAL implementation')
-    display = DAL()
-    print(f'EMPTY: {display.size[0]}x{display.size[1]}')
+    display = DAL({"debug":True})
     cfg = display.configuration()
-    print(f'EMPTY cfg: {cfg}')
+
+
+def test0():
+    pass
 
 
 if __name__ == "__main__":
     main()
+    test0()
