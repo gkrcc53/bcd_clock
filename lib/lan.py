@@ -34,7 +34,8 @@ class LAN:
         self.cfg = cfg | lcfg
         self.keys = self.cfg.keys()
         self.connected = False
-        self.wlan = None
+        self._wlan = None
+        self._ip4 = '0.0.0.0'
         self.ntp_host = 'pool.ntp.org'
         if 'ntp_host' in self.keys:
             self.ntp_host = self.cfg['ntp_host']
@@ -65,14 +66,9 @@ class LAN:
     def config(self):
         return self.cfg
 
+    @property
     def wlan(self):
-        return self.wlan
-
-    def get_ip(self):
-        if not self.wlan:
-            return '0.0.0.0'
-        else:
-            return self.wlan.ifconfig()[0]
+        return self._wlan
 
     def _strNetStatus(self, status):
         if status == network.STAT_CONNECTING:
@@ -91,8 +87,8 @@ class LAN:
             return f'{status}'
 
     def is_connected(self):
-        if self.wlan:
-            self.connected = self.wlan.isconnected()
+        if self._wlan is not None:
+            self.connected = self._wlan.isconnected()
         return self.connected
 
     def connect(self, tries=5):
@@ -132,30 +128,30 @@ class LAN:
                 print(f'hostname set to {network.hostname()}')
 
         # Try to connect
-        self.wlan = network.WLAN(network.STA_IF)
-        self.wlan.active(True)
+        self._wlan = network.WLAN(network.STA_IF)
+        self._wlan.active(True)
         time.sleep(1)
         if self._debug:
             print(f'Trying to connect to {ssid}')
         try:
             cnt1 = tries
             while cnt1 > 0:
-                self.wlan.connect(ssid, pwrd)
+                self._wlan.connect(ssid, pwrd)
                 cnt2 = 5
                 while cnt2 > 0:
-                    status = self.wlan.status()
+                    status = self._wlan.status()
                     if status == network.STAT_GOT_IP:
                         if self._txpower > 0:
-                            tmp = self.wlan.config('txpower')
+                            tmp = self._wlan.config('txpower')
                             if tmp != self._txpower:
-                                self.wlan.config(txpower=self._txpower)
-                        txp = self.wlan.config('txpower')
+                                self._wlan.config(txpower=self._txpower)
+                        txp = self._wlan.config('txpower')
                         if self._debug:
                             print(f'Maximum transmit power is {txp}')
                         self.connected = True
+                        self._ip4 = self._wlan.ifconfig()[0]
                         if self._debug:
-                            sip = f'{self.wlan.ifconfig()[0]}'
-                            print(f'Connected to LAN - ip is {sip}')
+                            print(f'Connected to LAN - ip is {self._ip4}')
                         return True
                     time.sleep(1)
                     if self._debug:
@@ -164,7 +160,7 @@ class LAN:
                     cnt2 -= 1
                 if self.connected:
                     break
-                self.wlan.disconnect()
+                self._wlan.disconnect()
                 time.sleep(5)
                 cnt1 -= 1
             return False
@@ -172,18 +168,99 @@ class LAN:
             print(f'Error {e}')
             return False
 
+
+    # Get the current IP4 address as str
+    def strIP4Address(self) -> str:
+        bad = '0.0.0.0'
+        if not self.is_connected():
+            return bad
+        return self._ip4
+
+
+    # Get the current IP4 address as list
+    def get_ip4(self) -> list:
+        bad = [0] * 4
+        if not self.is_connected():
+            return bad
+        ip4 = self.strIP4Address()
+        vals = ip4.split('.')
+        if len(vals) != 4:
+            return bad
+        return [int(vals[0]), int(vals[1]), int(vals[2]), int(vals[3])]
+
+
+    # Convert 6 field MAC string to standard bytearray
+    def str2mac(self, macstr):
+        bad = b'\0' * 6
+        vals = []
+        if macstr.find(':') >= 0:
+            vals = macstr.split(':')
+        elif macstr.find('.') >= 0:
+            vals = macstr.split(':')
+        if len(vals) != 6:
+            return bad
+        bmac = bytearray(6)
+        for i in range(6):
+            bmac[i] = int(vals[i], 16)
+        return bmac
+
+
+    def _platform(self) -> str:
+        if 'platform' in dir(sys):
+            return sys.platform
+
+    # Get the network MAC address, 6*b'0' if not defined
+    def get_mac_address(self) -> bytes:
+        bad = b'\0' * 6
+        if self._platform == 'linux':
+            import socket
+            import psutil
+            nics = psutil.net_if_addrs()
+            iName = [i
+                     for i in nics
+                     for j in nics[i]
+                     if j.address.startswith('192.168.178.') and
+                     j.family == socket.AF_INET][0]
+            nics = psutil.net_if_addrs()
+            mac = ([j.address
+                    for i in nics
+                    for j in nics[i]
+                    if i == iName and j.family == psutil.AF_LINK])[0]
+            return (self.str2mac(mac))
+        if not self.is_connected():
+            return bad
+        else:
+            return self._wlan.config('mac')
+
+
+    # Get the MAC address as list
+    def get_mac(self):
+        mac = self.get_mac_address()
+        return [mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]]
+
+
+    # Stringify the MAC address
+    def strMacAddress(self, mac=None) -> str:
+        if not mac:
+            mac = self.get_mac_address()
+        smac = ''
+        for num in mac:
+            smac = smac + f'{num:02x}.'
+        return smac[:-1]
+
+
     def disconnect(self):
         if not self.is_connected():
             return
-        if self.wlan:
-            self.wlan.disconnect()
-            self.wlan.active(False)
+        if self._wlan is not None:
+            self._wlan.disconnect()
+            self._wlan.active(False)
         self.connected = False
         if self._debug:
             print('Disconnected from LAN')
 
     # return UTC time from NTP server without TZ/DST modification
-    def ntp_socket(self, host, timeout=10):
+    def ntpserver_time(self, host, timeout=10):
         NTP_QUERY = bytearray(48)
         NTP_QUERY[0] = 0x1B
 
@@ -226,7 +303,7 @@ class LAN:
             return 0
 
     # return UTC time from ntptime module
-    def ntp_time(self, host=None, timeout=10):
+    def ntptime_time(self, host=None, timeout=10):
         if not gl.module_available('ntptime'):
             return 0
 
@@ -248,9 +325,9 @@ class LAN:
 
     def update_rtc(self, host=None, timeout=10):
         from machine import RTC
-        ltime = self.ntp_time(host, timeout)
+        ltime = self.ntptime_time(host, timeout)
         if ltime == 0:
-            ltime = self.ntp_socket(host, timeout)
+            ltime = self.ntpserver_time(host, timeout)
         if ltime == 0:
             return False
         lt = time.gmtime(ltime)
