@@ -1,9 +1,9 @@
 Raspberry Pi Zero 2W Installation
 =================================
 
-The Pi Zero code files should theoretically work on other Raspberry Pi based
+The Raspberry Pi Zero 2W files should theoretically work on other Raspberry Pi based
 microcomputers (perhaps with small modifications) but I have not done testing
-on other hardware.
+on any other hardware.
 
 <b>Low level device activation</b><p>
 

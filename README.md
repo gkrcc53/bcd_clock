@@ -4,9 +4,18 @@ BCD Clock MicroPython/Python application
 This application uses common display hardware, including SH1106,
 SSD1306, ST7735 and ST7789 screens and WS2812 panels to display a simple
 BCD clock. The application code was developed and tested on Raspberry Pi Zero 2W,
-Pico 2W, ESP32, ESP32 CAM, ESP32 S2 mini and ESP32 S3 microprocessors. It is
+Pico 2W, ESP32, ESP32 CAM, ESP32 S2 mini, ESP32 C3 mini, and ESP32 S3 mini/zero microprocessors. It is
 largely platform independent and should work on other MicroPython and Python
 platforms that support the required interface(s).
+
+What's New
+----------
+
+- The code now supports the Raspberry Pi Zero microcomputer platform
+- Support for additional microprocessor platforms has been added
+- A simple text clock application is available
+- The bcd_clock program switches between date and time display periodically
+- All of the DAL implementations include test code<p>
 
 Installation
 ------------
@@ -24,7 +33,7 @@ according to the wiring of your system.
 - Copy the platform specific configuration file to hw.cfg
 - If necessary, modify one of the display specific configuration files ({display}.cfg).
 - Copy the display configuration file to display.cfg
-- Run the display test program (test\_{display}.py) or the DAL implementation 
+- Run the display test program (test\_{display}.py) and/or the DAL implementation 
 file (dal_{display}.py) to make sure the configuration settings are correct.
 - Run the bcd_clock application
 
@@ -117,7 +126,9 @@ ESP32<br>
 - MicroPython v1.27.0 on 2025-12-09; Generic ESP32 module with ESP32<br>
 ESP32 S2 mini<br>
 - MicroPython v1.27.0 on 2025-12-09; LOLIN_S2_MINI with ESP32-S2FN4R2<br>
-ESP32 S3<br>
+ESP32 C3 mini<br>
+- MicroPython v1.27.0 on 2025-12-09; Generic ESP32S3 module with ESP32S3<br>
+ESP32 S3 mini<br>
 - MicroPython v1.27.0 on 2025-12-09; Generic ESP32S3 module with ESP32S3<br>
 ESP32 CAM<br>
 - MicroPython v1.27.0 on 2025-12-09; Generic ESP32 module with ESP32<br>
