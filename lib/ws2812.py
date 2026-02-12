@@ -84,7 +84,7 @@ class WS2812():
     @property
     def show_delay(self):
         return self._show_delay
-    
+
     @show_delay.setter
     def show_delay(self, delay):
         self._show_delay = delay
@@ -139,7 +139,7 @@ class WS2812():
             self.pixel1d(pos, color)
 
     # Set the color of the entire led array
-    def fill(self, color, show=True):
+    def fill(self, color, show=False):
         for i in range(self._pixel_cnt):
             self.pixel1d(i, color)
         if show:
@@ -150,7 +150,7 @@ class WS2812():
         self.fill((0, 0, 0), show)
 
     # Draw the border of a square with the given color
-    def square(self, x, y, s, color, show=True):
+    def square(self, x, y, s, color, show=False):
         for i in range(x, x+s):
             self.pixel2d(i, y, color)
             self.pixel2d(i, y+s-1, color)
@@ -161,7 +161,7 @@ class WS2812():
             self.show()
 
     # Draw a filled rectangle with the given color
-    def fill_rect(self, x, y, lx, ly, color, show=True):
+    def fill_rect(self, x, y, lx, ly, color, show=False):
         px = x
         py = y
         for i in range(ly):
@@ -171,21 +171,21 @@ class WS2812():
             self.show()
 
     # Draw a vertical line at (x,y), length pixels long with the given color
-    def vline(self, x, y, length, color, show=True):
+    def vline(self, x, y, length, color, show=False):
         for i in range(length):
             self.pixel2d(x, y+i, color)
         if show:
             self.show()
 
     # Draw a horizontal line at (x,y), length pixels long with the given color
-    def hline(self, x, y, length, color, show=True):
+    def hline(self, x, y, length, color, show=False):
         for i in range(length):
             self.pixel2d(x+i, y, color)
         if show:
             self.show()
 
     # Draw a line from (x0, y0) to (x1, y1) with the given color
-    def line(self, x0, y0, x1, y1, color, show=True):
+    def line(self, x0, y0, x1, y1, color, show=False):
         dx = abs(x1 - x0)
         sx = 1 if x0 < x1 else -1
         dy = -abs(y1 - y0)
@@ -263,16 +263,14 @@ if __name__ == "__main__":
     print('All white - maximum current drain')
     save = panel.brightness
     panel.brightness = 1.0
-    panel.fill(COLOR.WHITE)
-    panel.show()
+    panel.fill(COLOR.WHITE, show=True)
     panel.brightness = save
     time.sleep(3)
     panel.clear()
 
     # Display all white with brightness reduction
     print('All white - default brightness')
-    panel.fill(COLOR.WHITE)
-    panel.show()
+    panel.fill(COLOR.WHITE, show=True)
     time.sleep(3)
     panel.clear()
 
@@ -301,23 +299,23 @@ if __name__ == "__main__":
 
     print('Squares')
     panel.clear()
-    panel.square(0, 0, panel.size[0], COLOR.LTGREEN)
+    panel.square(0, 0, panel.size[0], COLOR.LTGREEN, show=True)
     time.sleep(1)
-    panel.square(1, 1, 6, COLOR.LTYELLOW)
+    panel.square(1, 1, 6, COLOR.LTYELLOW, show=True)
     time.sleep(1)
-    panel.square(2, 2, 4,COLOR.LTRED)
+    panel.square(2, 2, 4,COLOR.LTRED, show=True)
     time.sleep(1)
-    panel.square(3, 3, 2,COLOR.LTBLUE)
+    panel.square(3, 3, 2,COLOR.LTBLUE, show=True)
     time.sleep(2)
-    panel.square(0, 0, 4,COLOR.LTRED)
+    panel.square(0, 0, 4,COLOR.LTRED, show=True)
     time.sleep(1)
-    panel.square(4, 4, 4,COLOR.LTRED)
+    panel.square(4, 4, 4,COLOR.LTRED, show=True)
     time.sleep(1)
-    panel.square(4, 0, 4,COLOR.LTBLUE)
+    panel.square(4, 0, 4,COLOR.LTBLUE, show=True)
     time.sleep(1)
-    panel.square(0, 4, 4,COLOR.LTBLUE)
+    panel.square(0, 4, 4,COLOR.LTBLUE, show=True)
     time.sleep(1)
-    panel.square(2, 2, 4,COLOR.LTGREEN)
+    panel.square(2, 2, 4,COLOR.LTGREEN, show=True)
     time.sleep(1)
 
     # Basic color values
@@ -325,7 +323,7 @@ if __name__ == "__main__":
 
     print("Fills")
     for color in COLORS:
-        panel.fill(color, True)
+        panel.fill(color, show=True)
         time.sleep(1)
 
     print("Chases")
@@ -345,6 +343,7 @@ if __name__ == "__main__":
         if x0 != x1 or y0 != y1:
             color = wheel(randint(0,255))
             panel.line(x0, y0, x1, y1, (color[0], color[1], color[2]))
+            panel.show()
             time.sleep(0.5)
 
     time.sleep(1)
