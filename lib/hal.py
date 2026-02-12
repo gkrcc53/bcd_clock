@@ -1,7 +1,6 @@
 # Hardware abstraction layer
 import genlib as gl
 
-
 class HAL():
     def __init__(self):
         self._iolib = ''
@@ -86,23 +85,29 @@ class HAL():
     def get_lan(self):
         lan = None
         if gl.module_available('network'):
-            if gl.file_exists('lan.cfg'):
+            lcfg = 'lan.cfg'
+            if gl.file_exists(lcfg):
                 from lan import LAN
+                cfg = gl.get_config('lan.cfg')
                 lan = LAN()
-                # lan.debug = True
+                lan.debug = 'debug' in cfg and cfg['debug']
                 print('Trying to connect to LAN...')
                 if lan is None or not lan.connect():
                     raise Exception('LAN connection failed')
                 print(f'Connected to {lan.config()["ssid"]}')
-                hcfg = gl.get_config('hw.cfg')
-                if 'wlan_txpower' in hcfg:
-                    txp = hcfg["wlan_txpower"]
-                    lan.wlan.config(txpower=txp)
+                if 'txpower' in cfg:
+                    txp = cfg['txpower']
+                    if txp != -1:
+                        lan.wlan.config(txpower=txp)
                 txp = lan.wlan.config('txpower')
-                if self._debug:
+                if lan.debug:
                     print(f'WLAN transmit power is {txp}')
                 if not lan.update_rtc():
                     raise Exception('RTC update failed')
+            elif self._debug:
+                print(f'LAN configuration file {lcfg} not found')
+        elif self._debug:
+            print('network module not available')
         return lan
 
     def get_time_direct(self):
