@@ -12,6 +12,8 @@ cfg |= gl.get_config('hw.cfg')
 cfg |= gl.get_config('display.cfg')
 keys = cfg.keys()
 
+debug = 'debug' in keys and cfg['debug']
+
 hal = HAL()
 
 # Optional button to stop program cleanly
@@ -60,15 +62,17 @@ try:
 
     width = display.size[0]
     height = display.size[1]
-    tsize = dcfg['text']
-
+    tsize = display.text_box('00:00:00')
+    if debug:
+        print(f'Font info : {tsize}')
     opaque = 'opaque_text' in dcfg and dcfg['opaque_text']
 
-    x_size = int(8 * tsize[0] * display._scale)
-    y_size = int(tsize[1] * display._scale)
-    x_pos = int((width - x_size) / 2)
-    y_pos = int((height - y_size) / 2)
-
+    x_size = tsize[2]
+    y_size = tsize[3]
+    x_pos = int((width - x_size) / 2) - tsize[0]
+    y_pos = int((height - y_size) / 2) - tsize[1]
+    if debug:
+        print(f'Text info : [{x_pos}, {y_pos}, {x_size}, {y_size}]')
     show_time = True
     time_delay = 15000
     date_delay = 5000
@@ -87,13 +91,13 @@ try:
                 switch = True
             tstr = gl.strDate(short=True)
         if not opaque:
-            display.fill_rect(x_pos, y_pos, x_size, y_size, color=display.BLACK)
+            display.fill_rect(x_pos, y_pos, x_size, y_size, color=display.BLACK, show=False)
         display.text(tstr, x_pos, y_pos, color=display.WHITE)
         display.show()
         time.sleep(0.25)
         if switch:
-            display.clear()
-            time.sleep(1)
+            display.fill_rect(x_pos, y_pos, x_size, y_size, color=display.BLACK, show=True)
+            time.sleep(0.5)
             tstart = gl.local_ticks_ms()
 except SystemExit:
     pass
@@ -102,4 +106,3 @@ except KeyboardInterrupt:
 finally:
     if display is not None:
         display.clear()
-        display.show()
